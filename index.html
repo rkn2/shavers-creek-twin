@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shaver's Creek Twin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f2f3ef; --surface:#ffffff; --ink:#1b211d; --ink-2:#48524b; --muted:#6f7a72; --line:#dce1db; --grid:#edf0ec;
+  --accent:#2f6b3f; --accent-soft:#e3eee5; --stage:#12161a; --stage-ink:#e6ebe6; --warn:#a86a00;
+  --c-lodge:#c98a4b; --c-new:#3f86c9; --c-amb:#b0569c; --c-none:#8a918c;
+  --sans:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --serif:Bitter,Georgia,serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){ --bg:#0f1311; --surface:#171d1a; --ink:#e8ede9; --ink-2:#b4beb7; --muted:#8a958e; --line:#2a322d; --grid:#212824;
+    --accent:#86c79a; --accent-soft:#1e2b23; --warn:#e2a93a; color-scheme:dark; }
+}
+:root[data-theme="dark"]{ --bg:#0f1311; --surface:#171d1a; --ink:#e8ede9; --ink-2:#b4beb7; --muted:#8a958e; --line:#2a322d; --grid:#212824;
+  --accent:#86c79a; --accent-soft:#1e2b23; --warn:#e2a93a; color-scheme:dark; }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans)}
+a{color:var(--accent)}
+button{font:inherit;color:inherit}
+button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto;padding:20px 16px 40px;display:grid;gap:14px}
+header.top{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:8px 24px}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:0}
+h1{font:700 clamp(22px,3vw,30px)/1.15 var(--serif);margin:2px 0 0;text-wrap:balance}
+.meta{color:var(--muted);font-size:13px;margin:0}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:14px;align-items:start}
+@media (max-width:960px){.layout{grid-template-columns:1fr}}
+.stage{position:relative;background:var(--stage);border-radius:10px;overflow:hidden;height:min(78vh,780px);min-height:420px}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+.status{position:absolute;inset:0;display:grid;place-items:center;color:var(--stage-ink);font-size:14px;padding:16px;text-align:center;pointer-events:none}
+.status pre{white-space:pre-wrap;text-align:left;font:12px/1.5 var(--mono);pointer-events:auto;user-select:text;max-width:100%}
+.bar{position:absolute;left:10px;right:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;pointer-events:none}
+.bar.topbar{top:10px}.bar.bottom{bottom:10px}
+.bar>*{pointer-events:auto}
+.chip{background:rgba(18,22,26,.84);color:var(--stage-ink);border:1px solid rgba(230,235,230,.18);border-radius:6px;padding:5px 9px;font:600 12px var(--sans);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.chip:hover{border-color:rgba(230,235,230,.5)}
+.chip[aria-pressed="true"]{background:#2f6b3f;border-color:#86c79a}
+.chip select{background:transparent;color:inherit;border:0;font:inherit;padding:0;width:auto;max-width:190px}
+.chip select option{color:#111}
+.chip input[type=range]{width:80px;accent-color:#86c79a}
+.legend{position:absolute;right:10px;top:52px;background:rgba(18,22,26,.84);color:var(--stage-ink);border-radius:8px;padding:8px 10px;font-size:12px;display:grid;gap:3px;max-width:240px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend .ramp{height:9px;border-radius:3px;margin:2px 0}
+.labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;font:600 11px var(--sans);color:#fff;background:rgba(18,22,26,.72);padding:2px 6px;border-radius:4px;pointer-events:auto;cursor:pointer;border:1px solid transparent}
+.lbl:hover,.lbl.sel{border-color:#86c79a}
+.lbl.bld{background:rgba(47,107,63,.88)}
+.lbl.obs{background:rgba(168,106,0,.9)}
+@media (max-width:600px){.legend{top:auto;bottom:96px;left:10px;right:auto;max-width:70%;font-size:11px}.hint{display:none}}
+.hint{position:absolute;right:12px;bottom:52px;color:rgba(230,235,230,.6);font-size:12px;pointer-events:none}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:14px;align-content:start;min-width:0;max-height:min(78vh,780px);overflow:auto}
+@media (max-width:960px){.panel{max-height:none}}
+.panel h2{font:700 19px/1.2 var(--serif);margin:0}
+.panel h3{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.panel p{margin:0 0 6px}
+.sub{color:var(--ink-2);font-size:13px}
+.back{justify-self:start;background:none;border:0;padding:0;color:var(--accent);font-size:13px;font-weight:600;cursor:pointer}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.facts>div{background:var(--surface);padding:8px 10px;display:grid;gap:1px;min-width:0}
+.facts .k{font-size:11px;color:var(--muted)}
+.facts .v{font:500 15px var(--mono);font-variant-numeric:tabular-nums}
+.facts .s{font-size:11px;color:var(--muted)}
+.tl{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.tl li{display:grid;grid-template-columns:52px 1fr;gap:8px}
+.tl b{font:600 13px var(--mono);color:var(--accent)}
+ul.plain{margin:0;padding-left:18px}
+ul.plain li{margin:2px 0}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent);margin-left:4px}
+.tag.warn{background:rgba(168,106,0,.14);color:var(--warn)}
+.sightings{display:grid;gap:8px}
+.sight{display:grid;grid-template-columns:48px 1fr;gap:10px;align-items:center;text-decoration:none;color:inherit}
+.sight img{width:48px;height:48px;object-fit:cover;border-radius:6px;background:var(--grid)}
+.sight .n{font-weight:600}
+.sight .m{font-size:12px;color:var(--muted)}
+.split{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:6px 0}
+.split i{display:block;height:100%}
+.note{font-size:12px;color:var(--muted)}
+table.kv{border-collapse:collapse;width:100%;font-size:12px}
+table.kv td{border-bottom:1px solid var(--grid);padding:4px 6px;vertical-align:top}
+table.kv td:first-child{color:var(--muted);white-space:nowrap}
+details summary{cursor:pointer;color:var(--ink-2);font-weight:600;font-size:13px}
+.about{font-size:13px;color:var(--ink-2);max-width:90ch}
+#gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:16px}
+#gate form{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px;display:grid;gap:12px;width:min(380px,100%)}
+#gate input[type=password]{font:inherit;font-size:15px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+#gate button{background:var(--accent);color:var(--surface);border:0;border-radius:8px;padding:9px;font-weight:600;cursor:pointer}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow">Penn State Heritage 3D Lab · Digital Twin Hub</p>
+      <h1>Shaver's Creek Environmental Center</h1>
+    </div>
+    <p class="meta" id="meta">Visitor Center · Stone Valley Recreation Area, Petersburg, PA</p>
+  </header>
+  <main class="layout">
+    <section class="stage" aria-label="3D site model">
+      <canvas id="c" aria-label="Interactive 3D model of the Shaver's Creek Visitor Center and its surroundings"></canvas>
+      <div class="labels" id="labels"></div>
+      <div class="status" id="status">Loading…</div>
+      <div class="bar topbar" role="toolbar" aria-label="Layers">
+        <button class="chip" data-layer="terrain" aria-pressed="true">Terrain + imagery</button>
+        <button class="chip" data-layer="buildings" aria-pressed="true">Buildings</button>
+        <button class="chip" data-layer="trees" aria-pressed="false">Trees</button>
+        <button class="chip" data-layer="points" aria-pressed="false">Lidar points</button>
+        <button class="chip" data-layer="lines" aria-pressed="true">Trails + water</button>
+        <button class="chip" data-layer="labels" aria-pressed="true">Labels</button>
+        <button class="chip" data-layer="sightings" aria-pressed="false">Live sightings</button>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="hint" id="hint">Drag to orbit · right-drag to pan · scroll to zoom · click anything</div>
+      <div class="bar bottom" role="toolbar" aria-label="View">
+        <button class="chip" id="vHome">Home</button>
+        <button class="chip" id="vTop">Top</button>
+        <button class="chip" id="vLodge">Visitor Center</button>
+        <button class="chip" id="vLake">Lake Perez</button>
+        <label class="chip">Buildings <select id="bMode"><option value="type">by use</option><option value="change">2006–08 → 2019 change</option></select></label>
+        <label class="chip">Points <select id="pMode"><option value="photo">photo color</option><option value="class">lidar class</option><option value="height">height</option></select></label>
+        <label class="chip">Size <input id="pSize" type="range" min="0.5" max="4" step="0.1" value="1.6"></label>
+      </div>
+    </section>
+    <aside class="panel" id="panel" aria-label="Details"></aside>
+  </main>
+  <details class="about">
+    <summary>About this model and its data</summary>
+    <div id="about"></div>
+  </details>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+// ---------------------------------------------------------------- data access (plain in dev, AES-GCM behind the gate when published)
+let KEY = null;
+const DATA = "data/";
+async function getBuf(name){
+  const url = DATA + name + (KEY ? ".enc" : "");
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  const buf = await res.arrayBuffer();
+  if (!KEY) return buf;
+  const u = new Uint8Array(buf);
+  try { return await crypto.subtle.decrypt({name:"AES-GCM", iv:u.slice(0,12)}, KEY, u.slice(12)); }
+  catch(e){ throw new Error(`${url}: decrypt failed (${e.name})`); }
+}
+const getJSON = async n => JSON.parse(new TextDecoder().decode(await getBuf(n)));
+async function getTex(n){
+  const bmp = await createImageBitmap(new Blob([await getBuf(n)], {type:"image/jpeg"})); // row 0 = north; v flipped in the shader
+  const t = new THREE.Texture(bmp); t.flipY = false; t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8; t.needsUpdate = true; return t;
+}
+
+const $ = id => document.getElementById(id);
+const safeUrl = u => /^https:\/\//i.test(String(u || "")) ? String(u) : "#";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = (v, d=1) => v == null || !isFinite(v) ? "–" : (+v).toFixed(d);
+const M2FT = 3.28084, M2SF = 10.7639;
+
+// ---------------------------------------------------------------- facts (see SOURCES.md for every row)
+const SITE = {
+  lat: 40.66756, lon: -77.90977,
+  timeline: [
+    ["1938", "Shaver's Creek's own history says the lodge and a separate bathroom building were finished in 1938 for Penn State Forestry. The federal government built them. The CCC is often credited, but that has never been proven."],
+    ["1976", "The same history says the nature center opened in 1976, in one room of the lodge."],
+    ["2007", "A 7group sustainability charrette proposed a concept that included a green roof and composting toilets. No source describes either as built."],
+    ["2017", "Board of Trustees approves final plans on Feb 24 ($5.8M, first major upgrade in 41 years). Construction starts in March."],
+    ["2018", "Renovated and expanded Visitor Center reopens Sept 1."],
+    ["2019", "Phase 2 finished in Feb 2019, adding 14 raptor enclosures and an upper classroom."],
+    ["2022", "LEED certification earned (level not published)."],
+  ],
+  team: [["Architect","Kimmel Bogrette Architecture + Site"],["MEP","Barton Associates"],["Structural / civil","Reuther + Bowen"],["Landscape / master plan","LandStudies"]],
+  spaces: ["Litzinger Discovery Room","Weidemann Bookstore and Gift Shop","Indoor bird-watching station","Litzinger Herpetology Center"],
+  green: ["VRF heat-pump HVAC","Structural insulated panels ($35K grant)","Building automation system","Natural ventilation and daylighting","About 20% lower water use","75% of construction waste diverted","30,000 board feet of Stone Valley Forest timber"],
+  links: [
+    ["Shaver's Creek visitor information","https://www.shaverscreek.org/about-us/visitor-information/"],
+    ["Board of Trustees approval (Penn State News, 2017)","https://www.psu.edu/news/outreach/story/shavers-creek-set-major-upgrades-board-trustees-approves-final-plans"],
+    ["Reopening and phase 2 (StateCollege.com)","https://www.statecollege.com/articles/local-news/new-facilities-help-shavers-creek-educate-the-next-generation-of-conservationists/"],
+    ["Kimmel Bogrette project page","https://kimmelarch.com/portfolio/penn-state-university-shavers-creek-environmental-center/"],
+    ["Sustainability grant (Penn State News)","https://www.psu.edu/news/impact/story/shavers-creek-receives-grant-install-sustainable-technologies"],
+    ["WPSU virtual field trip","https://virtualfieldtrips.wpsu.org/shavers-creek/"],
+  ],
+};
+const INFO = {
+  "Shaver's Creek Visitor Center": {role:"main", blurb:"The 1938 Forestry lodge, renovated and joined to a 2017–18 addition. The roof-change view compares the 2006–08 and 2019 lidar surveys to show which roof areas were already standing before the addition."},
+  "Hamer Classroom Building": {role:"class", blurb:"Classroom with a canopy deck and kitchen, clad in locally harvested hemlock. Comparing the two lidar surveys shows it wasn't there in 2006–08."},
+  "Aerie Classroom": {role:"class", blurb:"Upper classroom by the aviary. The phase 2 upper classroom (Feb 2019) is likely this building; no source confirms that."},
+  "Golden Eagle Mew": {role:"aviary"}, "Driftmier Eagle Mew": {role:"aviary"}, "Barron Owl Mews": {role:"aviary"},
+  "Farmland Raptor Mews": {role:"aviary"}, "Soaring Hawk Enclosure": {role:"aviary"}, "Vulture Enclosure": {role:"aviary"},
+  "Shaver's Creek Maintenance": {role:"service"}, "Pumphouse": {role:"service"}, "Bathhouse": {role:"service", blurb:"OSM tags it as public toilets. The 1938 project included a separate bathroom building; no source confirms this is the same one."},
+  "Sugar Shack": {role:"service"},
+};
+const AVIARY = "Part of the Klingsberg Aviary, home to 20+ non-releasable raptors. Phase 2 (Feb 2019) added 14 raptor enclosures. <a href='https://www.shaverscreek.org/visitor-information/klingsberg-aviary/' target='_blank' rel='noopener'>Aviary page</a>";
+const ROLE_COL = {main:0xc98a4b, class:0x6aa37a, aviary:0x8f7bb8, service:0x9aa39d, other:0xb9bfba};
+const CHG_COL = [0xc98a4b, 0x3f86c9, 0xb0569c]; const CHG_NONE = 0x8a918c;
+
+// ---------------------------------------------------------------- scene
+const canvas = $("c"), statusEl = $("status");
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x12161a);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 8000); camera.up.set(0,0,1);
+const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.495;
+scene.add(new THREE.HemisphereLight(0xeef4ff, 0x4a5a40, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(-300, -400, 600); scene.add(sun);
+function resize(){ const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(canvas); resize();
+
+let T, F, Z0, dem, N, PX;
+const layers = {terrain:new THREE.Group(), buildings:new THREE.Group(), trees:new THREE.Group(), points:new THREE.Group(), lines:new THREE.Group(), sightings:new THREE.Group()};
+Object.values(layers).forEach(g => scene.add(g));
+const state = {labels:true, bMode:"type", pMode:"photo", sel:null};
+
+function h(x, y){ // bilinear terrain height, local metres -> scene z
+  const c = (x + F.ctx) / PX - 0.5, r = (F.ctx - y) / PX - 0.5;
+  const c0 = Math.max(0, Math.min(N-2, Math.floor(c))), r0 = Math.max(0, Math.min(N-2, Math.floor(r)));
+  const fc = Math.min(1, Math.max(0, c - c0)), fr = Math.min(1, Math.max(0, r - r0));
+  const a = dem[r0*N+c0], b = dem[r0*N+c0+1], cc = dem[(r0+1)*N+c0], d = dem[(r0+1)*N+c0+1];
+  return (a*(1-fc)+b*fc)*(1-fr) + (cc*(1-fc)+d*fc)*fr - Z0;
+}
+const lonlat = (x, y) => [F.lon[0]*x + F.lon[1]*y + F.lon[2], F.lat[0]*x + F.lat[1]*y + F.lat[2]];
+
+// ---------------------------------------------------------------- builders
+async function buildTerrain(){
+  const [ctx, hi] = await Promise.all([getTex("naip_ctx.jpg"), getTex("naip_hi.jpg")]);
+  const W = PX * (N - 1);
+  const g = new THREE.PlaneGeometry(W, W, N - 1, N - 1);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) p.setZ(i, dem[i] - Z0); // PlaneGeometry rows run top (north) to bottom, like the DEM
+  g.computeVertexNormals();
+  const mat = new THREE.ShaderMaterial({
+    uniforms:{ctx:{value:ctx}, hi:{value:hi}, CTX:{value:F.ctx}, HI:{value:F.hi}, L:{value:new THREE.Vector3(-0.35,-0.45,0.82).normalize()}},
+    vertexShader:`varying vec2 vxy; varying vec3 vn; void main(){ vxy = position.xy; vn = normal; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader:`uniform sampler2D ctx; uniform sampler2D hi; uniform float CTX; uniform float HI; uniform vec3 L; varying vec2 vxy; varying vec3 vn;
+      void main(){ vec3 c = (abs(vxy.x) < HI && abs(vxy.y) < HI) ? texture2D(hi, vec2((vxy.x + HI) / (2.0*HI), (HI - vxy.y) / (2.0*HI))).rgb : texture2D(ctx, vec2((vxy.x + CTX) / (2.0*CTX), (CTX - vxy.y) / (2.0*CTX))).rgb;
+        float s = 0.78 + 0.32 * max(dot(normalize(vn), L), 0.0); gl_FragColor = vec4(c * s, 1.0);
+#include <colorspace_fragment>
+}`,
+  });
+  const mesh = new THREE.Mesh(g, mat); mesh.userData.kind = "terrain"; layers.terrain.add(mesh);
+}
+
+const bMeshes = [];
+function roleOf(b){ return (INFO[b.name]?.role) || "other"; }
+function buildBuildings(){
+  for (const b of T.buildings){
+    const P = b.poly, n = P.length - 1, base = b.base - Z0 - 0.4;
+    const roof = b.roof, pos = [], idx = [], stat = [];
+    const chg = new Map((b.change?.cells || []).map(([x,y,s]) => [`${Math.round(x)},${Math.round(y)}`, s]));
+    const chgAt = (x, y) => { const k = `${Math.round((x + 1) / 2) * 2 - 1},${Math.round((y + 1) / 2) * 2 - 1}`; return chg.has(k) ? chg.get(k) : -1; };
+    let rz = null;
+    if (roof){
+      const {r0, c0, rows, cols, cell, z} = roof;
+      const X = c => -F.pts + (c0 + c + 0.5) * cell, Y = r => F.pts - (r0 + r + 0.5) * cell;
+      rz = (x, y) => { // nearest valid roof cell
+        let best = null, bd = 1e9; const cc = Math.round((x + F.pts) / cell - 0.5) - c0, rr = Math.round((F.pts - y) / cell - 0.5) - r0;
+        for (let dr = -4; dr <= 4; dr++) for (let dc = -4; dc <= 4; dc++){ const r = rr + dr, c = cc + dc;
+          if (r < 0 || c < 0 || r >= rows || c >= cols) continue; const v = z[r*cols+c]; if (v == null) continue;
+          const d = dr*dr + dc*dc; if (d < bd){ bd = d; best = v; } }
+        return best ?? b.eave; };
+      const vid = new Int32Array(rows * cols).fill(-1);
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++){ const v = z[r*cols+c]; if (v == null) continue;
+        vid[r*cols+c] = pos.length / 3; pos.push(X(c), Y(r), v - Z0); stat.push(chgAt(X(c), Y(r))); }
+      for (let r = 0; r < rows - 1; r++) for (let c = 0; c < cols - 1; c++){
+        const a = vid[r*cols+c], bq = vid[r*cols+c+1], cq = vid[(r+1)*cols+c], d = vid[(r+1)*cols+c+1];
+        if (a >= 0 && cq >= 0 && d >= 0) idx.push(a, cq, d); if (a >= 0 && d >= 0 && bq >= 0) idx.push(a, d, bq);
+        else if (a < 0 && bq >= 0 && cq >= 0 && d >= 0) idx.push(bq, cq, d); else if (d < 0 && a >= 0 && bq >= 0 && cq >= 0) idx.push(a, cq, bq); }
+    } else {
+      const top = b.top - Z0, cx = P.reduce((s,p)=>s+p[0],0)/n, cy = P.reduce((s,p)=>s+p[1],0)/n;
+      const c = pos.length / 3; pos.push(cx, cy, top); stat.push(chgAt(cx, cy));
+      for (let i = 0; i < n; i++){ pos.push(P[i][0], P[i][1], top); stat.push(chgAt(P[i][0], P[i][1])); }
+      for (let i = 0; i < n; i++) idx.push(c, c + 1 + i, c + 1 + (i + 1) % n);
+    }
+    // walls: footprint edges from grade to local eave
+    for (let i = 0; i < n; i++){
+      const [x0, y0] = P[i], [x1, y1] = P[i+1];
+      const t0 = (rz ? rz(x0, y0) : b.top) - Z0, t1 = (rz ? rz(x1, y1) : b.top) - Z0;
+      const k = pos.length / 3;
+      pos.push(x0, y0, base, x1, y1, base, x1, y1, t1, x0, y0, t0); stat.push(-2, -2, -2, -2);
+      idx.push(k, k+1, k+2, k, k+2, k+3);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    g.setAttribute("color", new THREE.Float32BufferAttribute(new Float32Array(pos.length), 3));
+    const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({vertexColors:true, side:THREE.DoubleSide}));
+    mesh.userData = {kind:"building", b, stat}; b.mesh = mesh; bMeshes.push(mesh); layers.buildings.add(mesh);
+  }
+  colorBuildings();
+}
+function colorBuildings(){
+  const tmp = new THREE.Color();
+  for (const m of bMeshes){
+    const {b, stat} = m.userData, col = m.geometry.attributes.color, sel = state.sel?.b === b;
+    for (let i = 0; i < stat.length; i++){
+      const s = stat[i];
+      if (state.bMode === "type") tmp.setHex(ROLE_COL[roleOf(b)]);
+      else tmp.setHex(s === -2 ? 0x6d746f : s >= 0 ? CHG_COL[s] : CHG_NONE);
+      if (s === -2 && state.bMode === "type") tmp.multiplyScalar(0.72);
+      if (sel) tmp.lerp(new THREE.Color(0xffffff), 0.28);
+      col.setXYZ(i, tmp.r, tmp.g, tmp.b);
+    }
+    col.needsUpdate = true;
+  }
+  legend();
+}
+
+let treeMesh;
+function buildTrees(){
+  const geo = new THREE.IcosahedronGeometry(1, 1); geo.translate(0, 0, 0);
+  treeMesh = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({transparent:true, opacity:0.62}), T.trees.length);
+  const m = new THREE.Matrix4(), c = new THREE.Color(), hmax = Math.max(...T.trees.map(t => t[3]));
+  T.trees.forEach(([x, y, gz, ht, cr], i) => {
+    const crownDepth = Math.max(2, ht * 0.35), r = Math.max(1, cr);
+    m.makeScale(r, r, crownDepth); m.setPosition(x, y, gz - Z0 + ht - crownDepth);
+    treeMesh.setMatrixAt(i, m);
+    const t = Math.min(1, (ht - 5) / (hmax - 5));
+    c.setHSL(0.28 - 0.06 * t, 0.45, 0.62 - 0.36 * t); treeMesh.setColorAt(i, c);
+  });
+  treeMesh.userData.kind = "tree"; layers.trees.add(treeMesh);
+  // trunks as a single line set
+  const lp = []; T.trees.forEach(([x, y, gz, ht]) => { lp.push(x, y, gz - Z0, x, y, gz - Z0 + ht * 0.7); });
+  const lg = new THREE.BufferGeometry(); lg.setAttribute("position", new THREE.Float32BufferAttribute(lp, 3));
+  layers.trees.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({color:0x5b4a36})));
+}
+
+let pts, pColors = {};
+async function buildPoints(){
+  const P = T.points, ext = P.extent, n = P.count;
+  const pos = new Float32Array(n * 3), photo = new Uint8Array(n * 3), cls = new Uint8Array(n);
+  let o = 0;
+  for (const ch of P.chunks){
+    statusEl.hidden = false; statusEl.textContent = `Loading lidar… ${Math.round(100 * o / n)}%`;
+    const buf = await getBuf(ch.file), k = ch.count;
+    const q = new Uint16Array(buf, 0, k * 3), rgb = new Uint8Array(buf, k * 6, k * 3), cl = new Uint8Array(buf, k * 9, k);
+    for (let i = 0; i < k * 3; i++){ const a = i % 3; pos[o*3 + i] = (q[i] / 65535 * 2 - 1) * ext[a] + (a === 2 ? P.zc - Z0 : 0); }
+    photo.set(rgb, o * 3); cls.set(cl, o); o += k;
+  }
+  statusEl.hidden = true;
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  g.setAttribute("color", new THREE.BufferAttribute(new Uint8Array(n * 3), 3, true));
+  pts = new THREE.Points(g, new THREE.PointsMaterial({size:+$("pSize").value, sizeAttenuation:false, vertexColors:true}));
+  pts.userData = {photo, cls}; layers.points.add(pts); colorPoints();
+}
+// 2 / 9 / 20 are USGS classes; 3-6 are derived in build.py (the 2019 delivery has no building or vegetation classes)
+const CLS = {1:[170,170,170,"Unclassified"],2:[176,132,82,"Ground (USGS)"],3:[168,214,120,"Vegetation < 2 m (derived)"],4:[96,176,84,"Vegetation 2–5 m (derived)"],5:[40,120,56,"Vegetation > 5 m (derived)"],6:[222,96,70,"Roof (derived)"],9:[70,140,220,"Water (USGS)"],20:[150,120,90,"Ignored ground (USGS)"]};
+function colorPoints(){
+  if (!pts) return;
+  const col = pts.geometry.attributes.color.array, {photo, cls} = pts.userData, p = pts.geometry.attributes.position.array, n = cls.length;
+  if (state.pMode === "photo") col.set(photo);
+  else if (state.pMode === "class") for (let i = 0; i < n; i++){ const c = CLS[cls[i]] || [200,200,200]; col[i*3] = c[0]; col[i*3+1] = c[1]; col[i*3+2] = c[2]; }
+  else for (let i = 0; i < n; i++){ const z = p[i*3+2] - h(p[i*3], p[i*3+1]); const t = Math.max(0, Math.min(1, z / 35));
+    col[i*3] = 40 + 215*t; col[i*3+1] = 60 + 150*Math.sin(Math.PI*Math.min(1,t*1.1)); col[i*3+2] = 200 - 180*t; }
+  pts.geometry.attributes.color.needsUpdate = true; legend();
+}
+
+function buildLines(){
+  const style = {trail:[0xf2e2b8, 0.6], road:[0xdcdcdc, 0.5], water:[0x5fb3ff, 0.3], lake:[0x5fb3ff, 0.4]};
+  for (const l of T.lines){
+    const out = [];
+    for (let i = 0; i < l.pts.length - 1; i++){
+      const [x0, y0] = l.pts[i], [x1, y1] = l.pts[i+1], d = Math.hypot(x1-x0, y1-y0), s = Math.max(1, Math.ceil(d / 3));
+      for (let k = 0; k < s; k++){ const t = k / s, x = x0 + (x1-x0)*t, y = y0 + (y1-y0)*t; out.push(x, y, h(x, y) + style[l.kind][1] + (l.bridge ? 1 : 0)); }
+    }
+    const [xl, yl] = l.pts[l.pts.length-1]; out.push(xl, yl, h(xl, yl) + style[l.kind][1]);
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(out, 3));
+    layers.lines.add(new THREE.Line(g, new THREE.LineBasicMaterial({color:style[l.kind][0], transparent:true, opacity:l.kind === "trail" ? 0.95 : 0.85})));
+  }
+}
+
+// ---------------------------------------------------------------- labels
+const labelEls = [];
+const MAJOR = new Set(["Visitor Center", "Hamer Classroom Building", "Aerie Classroom", "Klingsberg Aviary", "Maintenance"]);
+function addLabel(text, x, y, z, cls, onClick){
+  const el = document.createElement("button"); el.className = "lbl " + (cls || ""); el.textContent = text; el.type = "button";
+  el.addEventListener("click", e => { e.stopPropagation(); onClick(); });
+  const pri = cls === "obs" ? 2 : MAJOR.has(text) ? 2 : cls === "bld" ? 1 : 0;
+  $("labels").appendChild(el); const L = {el, v:new THREE.Vector3(x, y, z), cls, pri}; labelEls.push(L); return L;
+}
+function buildLabels(){
+  for (const b of T.buildings){
+    if (!b.name) continue; const P = b.poly, n = P.length - 1;
+    const cx = P.slice(0,n).reduce((s,p)=>s+p[0],0)/n, cy = P.slice(0,n).reduce((s,p)=>s+p[1],0)/n;
+    b.label = addLabel(b.name.replace("Shaver's Creek ", ""), cx, cy, b.top - Z0 + 2, "bld", () => select({b}));
+  }
+  const seen = new Set(T.buildings.map(b => b.name));
+  for (const f of T.features){
+    if (seen.has(f.name) || f.tags.place || f.tags.boundary || f.name === "Shavers Creek Environmental Center") continue;
+    f.label = addLabel(f.name, f.x, f.y, h(f.x, f.y) + 3, "", () => select({f}));
+  }
+}
+const _v = new THREE.Vector3();
+function placeLabels(){
+  const w = canvas.clientWidth, hh = canvas.clientHeight, show = state.labels;
+  const dist = camera.position.distanceTo(controls.target);
+  for (const L of labelEls){
+    const hideFar = (L.pri === 0 && dist > 700) || (L.pri === 1 && dist > 190);
+    if (!show || hideFar || (L.cls === "obs" && !layers.sightings.visible)){ L.el.hidden = true; continue; }
+    _v.copy(L.v).project(camera);
+    if (_v.z > 1 || Math.abs(_v.x) > 1.05 || Math.abs(_v.y) > 1.05){ L.el.hidden = true; continue; }
+    L.el.hidden = false; L.el.style.left = ((_v.x + 1) / 2 * w) + "px"; L.el.style.top = ((1 - _v.y) / 2 * hh) + "px";
+  }
+}
+
+// ---------------------------------------------------------------- legend
+function legend(){
+  const el = $("legend"), rows = [];
+  if (!matchMedia("(max-width:600px)").matches) el.style.top = (document.querySelector(".topbar").offsetHeight + 16) + "px";
+  if (layers.buildings.visible){
+    if (state.bMode === "type") rows.push("<b>Buildings by use</b>", ...[["main","Visitor Center"],["class","Classrooms"],["aviary","Aviary mews"],["service","Service / support"],["other","Other (unnamed in OSM)"]].map(([k,t]) => `<span><i style="background:#${ROLE_COL[k].toString(16).padStart(6,"0")}"></i>${t}</span>`));
+    else rows.push("<b>Roof vs. 2006–08 lidar</b>", `<span><i style="background:var(--c-lodge)"></i>Same height in 2006–08</span>`, `<span><i style="background:var(--c-new)"></i>Ground or trees in 2006–08 (new)</span>`, `<span><i style="background:var(--c-amb)"></i>Changed height or mixed</span>`, `<span><i style="background:var(--c-none)"></i>No comparison</span>`);
+  }
+  if (layers.trees.visible) rows.push(`<b>Trees (lidar crowns ≥ 5 m)</b><div class="ramp" style="background:linear-gradient(90deg,hsl(101,45%,62%),hsl(79,45%,26%))"></div><span>5 m → ${fmt(Math.max(...T.trees.map(t=>t[3])),0)} m tall</span>`);
+  if (layers.points.visible && state.pMode === "class") rows.push(`<b>Lidar class</b><span style="opacity:.7">USGS classes, plus classes derived here</span>`, ...Object.values(CLS).map(c => `<span><i style="background:rgb(${c[0]},${c[1]},${c[2]})"></i>${c[3]}</span>`));
+  if (layers.points.visible && state.pMode === "height") rows.push(`<b>Height above ground</b><div class="ramp" style="background:linear-gradient(90deg,rgb(40,60,200),rgb(147,210,110),rgb(255,60,20))"></div><span>0 → 35+ m</span>`);
+  el.innerHTML = rows.join(""); el.hidden = !rows.length;
+}
+
+// ---------------------------------------------------------------- views
+function fly(target, dist, dir){
+  const d = new THREE.Vector3(...dir).normalize();
+  controls.target.copy(target); camera.position.copy(target).addScaledVector(d, dist); controls.update();
+}
+const home = () => fly(new THREE.Vector3(-8, -18, 0), 170, [0.35, -0.8, 0.5]);
+
+// ---------------------------------------------------------------- picking
+const ray = new THREE.Raycaster(); 
+let down = null;
+canvas.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; $("hint").hidden = true; });
+canvas.addEventListener("pointerup", e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+  const r = canvas.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
+  const targets = [...(layers.buildings.visible ? bMeshes : []), ...(layers.trees.visible && treeMesh ? [treeMesh] : []), ...(layers.terrain.visible ? layers.terrain.children : [])];
+  const hit = ray.intersectObjects(targets, false)[0];
+  if (!hit) return;
+  if (hit.object.userData.kind === "building") select({b:hit.object.userData.b});
+  else if (hit.object.userData.kind === "tree") select({tree:hit.instanceId});
+  else select({ground:hit.point});
+});
+
+// ---------------------------------------------------------------- panel
+function select(s){
+  if (state.sel?.b?.label) state.sel.b.label.el.classList.remove("sel");
+  state.sel = s; if (s?.b?.label) s.b.label.el.classList.add("sel");
+  colorBuildings(); render();
+  if (s && matchMedia("(max-width:960px)").matches) panel.scrollIntoView({behavior:"smooth", block:"start"});
+}
+const panel = $("panel");
+function render(){
+  const s = state.sel;
+  if (!s) return renderOverview();
+  const back = `<button class="back" id="back">← Site overview</button>`;
+  if (s.b) return renderBuilding(s.b, back);
+  if (s.tree != null) return renderTree(s.tree, back);
+  if (s.f) return renderFeature(s.f, back);
+  if (s.ground) return renderGround(s.ground, back);
+}
+function wireBack(){ const b = $("back"); if (b) b.onclick = () => select(null); }
+function ll(x, y){ const [lo, la] = lonlat(x, y); return `${la.toFixed(5)}, ${lo.toFixed(5)}`; }
+
+function renderOverview(){
+  const vc = T.buildings.find(b => b.name === "Shaver's Creek Visitor Center");
+  panel.innerHTML = `
+    <div><h2>Visitor Center and grounds</h2><p class="sub">A 1938 Forestry lodge joined to a 2017–18 addition, surrounded by the Klingsberg Aviary, classrooms, trails and Lake Perez. Click a building, tree or label to see details.</p></div>
+    <section><h3>Right now at the site</h3><div id="wx" class="sub">Loading conditions…</div></section>
+    <section><h3>History</h3><ul class="tl">${SITE.timeline.map(([y,t]) => `<li><b>${y}</b><span>${esc(t)}</span></li>`).join("")}</ul></section>
+    ${vc ? `<section><h3>Visitor Center roof, 2006–08 vs 2019</h3>${changeBlock(vc)}<button class="back" id="goVC">Open the Visitor Center →</button></section>` : ""}
+    <section><h3>Recent sightings nearby <span class="tag">iNaturalist · live</span></h3><div id="inat" class="sightings sub">Loading…</div></section>
+    <section><h3>Design team</h3><table class="kv">${SITE.team.map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("")}</table></section>
+    <section><h3>Read more</h3><ul class="plain">${SITE.links.map(([t,u]) => `<li><a href="${u}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join("")}</ul></section>`;
+  const g = $("goVC"); if (g) g.onclick = () => { select({b:vc}); focusB(vc); };
+  loadWeather(); loadSightings();
+}
+function changeBlock(b){
+  const s = b.changeStats; if (!s) return `<p class="note">No 2006–08 comparison for this footprint.</p>`;
+  const tot = s.existed + s.new + s.ambiguous + s.nodata, pc = v => Math.round(100 * v / tot);
+  return `<div class="split" role="img" aria-label="${pc(s.existed)}% same height in 2006–08, ${pc(s.new)}% open ground in 2006–08, ${pc(s.ambiguous)}% changed or unclear">
+      <i style="width:${pc(s.existed)}%;background:var(--c-lodge)"></i><i style="width:${pc(s.new)}%;background:var(--c-new)"></i><i style="width:${pc(s.ambiguous)}%;background:var(--c-amb)"></i><i style="width:${pc(s.nodata)}%;background:var(--c-none)"></i></div>
+    <p class="sub"><b>${pc(s.existed)}%</b> of the footprint had a hard roof at the same height in 2006–08${b.name === "Shaver's Creek Visitor Center" ? " (the 1938 lodge and any additions built before 2008)" : ""}. <b>${pc(s.new)}%</b> was open ground (${s.newGround} cells) or tree canopy (${s.newCanopy} cells) then, so it was probably built after 2008. <b>${pc(s.ambiguous)}%</b> is mixed: a roof that changed height, or a mix of roof, canopy and ground returns.${s.nodata ? ` ${pc(s.nodata)}% had too few 2006–08 points to compare.` : ""}</p>
+    ${s.demoted ? `<p class="note">Only ${s.support} 2006–08 roof points matched here (the threshold is 15), so no cells are marked “same roof”.</p>` : ""}
+    <p class="note">The 2006–08 survey has about 0.45 returns/m², so each 2 m cell votes over every return within 2.5 m. That makes the effective resolution about 5 m. ${s.support ? `${s.support} matching 2006–08 roof returns support the “same” cells.` : ""}</p>
+    <p class="note">Switch Buildings to “2006–08 → 2019 change” in the toolbar to see this on the roof.</p>`;
+}
+function focusB(b){
+  const P = b.poly, n = P.length - 1, cx = P.slice(0,n).reduce((s,p)=>s+p[0],0)/n, cy = P.slice(0,n).reduce((s,p)=>s+p[1],0)/n;
+  const r = Math.max(...P.map(p => Math.hypot(p[0]-cx, p[1]-cy)));
+  fly(new THREE.Vector3(cx, cy, b.base - Z0 + 4), Math.max(35, r * 3.2), [0.5, -0.75, 0.55]);
+}
+function renderBuilding(b, back){
+  const info = INFO[b.name] || {}, role = roleOf(b), hgt = b.top - b.base;
+  const tags = Object.entries(b.tags).filter(([k]) => !/^addr:|^name$|phone|website/.test(k));
+  const main = role === "main";
+  panel.innerHTML = `${back}
+    <div><h2>${esc(b.name || "Unnamed building")}</h2><p class="sub">${info.blurb ? esc(info.blurb) : ""} ${role === "aviary" ? AVIARY : ""}</p></div>
+    <div class="facts">
+      <div><span class="k">Footprint</span><span class="v">${fmt(b.area * M2SF, 0)} sf</span><span class="s">${fmt(b.area,0)} m² · OSM outline${b.shift && (b.shift[0] || b.shift[1]) ? ", snapped to lidar" : ""}</span></div>
+      <div><span class="k">Roof peak above grade</span><span class="v">${fmt(hgt * M2FT, 0)} ft</span><span class="s">${fmt(hgt,1)} m · ${esc(b.heightSource)}</span></div>
+      <div><span class="k">Grade elevation</span><span class="v">${fmt(b.base * M2FT, 0)} ft</span><span class="s">${fmt(b.base,1)} m NAVD88 · lowest corner</span></div>
+      <div><span class="k">Lidar returns inside</span><span class="v">${b.buildingPts.toLocaleString()}</span><span class="s">single-return roof points, 2019</span></div>
+    </div>
+    ${main ? `<p class="note">The design firms give 8,800 sf (Barton Associates, phase 1) and 12,400 sf (Reuther + Bowen, addition plus renovation). The footprint above is the OSM outline of the whole building. It is not floor area.</p>` : ""}
+    ${b.changeStats ? `<section><h3>Roof, 2006–08 vs 2019 lidar</h3>${changeBlock(b)}</section>` : ""}
+    ${main ? `<section><h3>Spaces inside <span class="tag warn">locations not mapped</span></h3><ul class="plain">${SITE.spaces.map(s => `<li>${esc(s)}</li>`).join("")}</ul>
+      <p class="note">No public floor plans exist. Rooms are listed from Shaver's Creek and the design firms' pages but not drawn. Plans from Penn State OPP or Kimmel Bogrette would let each room become clickable, as in the Palmer twin.</p></section>
+      <section><h3>Sustainability features (as built)</h3><ul class="plain">${SITE.green.map(s => `<li>${esc(s)}</li>`).join("")}</ul></section>
+      <section><h3>History</h3><ul class="tl">${SITE.timeline.map(([y,t]) => `<li><b>${y}</b><span>${esc(t)}</span></li>`).join("")}</ul></section>` : ""}
+    <details><summary>OpenStreetMap tags and lidar detail</summary><table class="kv">
+      <tr><td>OSM</td><td><a href="https://www.openstreetmap.org/${b.osm}" target="_blank" rel="noopener">${b.osm}</a></td></tr>
+      ${tags.map(([k,v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}
+      <tr><td>lidar classes</td><td>${Object.entries(b.lidarClasses).map(([k,v]) => `${CLS[k]?.[3] || "class " + k}: ${v}`).join(", ")}</td></tr>
+      <tr><td>roof coverage</td><td>${Math.round(b.roofCover * 100)}% of footprint cells</td></tr>
+      <tr><td>outline fit</td><td>${b.shift && (b.shift[0] || b.shift[1]) ? `OSM outline shifted ${b.shift[0]} m E, ${b.shift[1]} m N to match the lidar roof (overlap ${b.iou[0]} → ${b.iou[1]})` : `OSM outline used as drawn (overlap with lidar roof ${b.iou ? b.iou[0] : "–"})`}</td></tr>
+      <tr><td>canopy over roof</td><td>${Math.round(b.multiFrac * 100)}% of returns are multi-echo</td></tr>
+      <tr><td>location</td><td>${ll(b.poly[0][0], b.poly[0][1])}</td></tr></table></details>`;
+  wireBack();
+}
+function renderTree(i, back){
+  const [x, y, gz, ht, cr] = T.trees[i]; const [lo, la] = lonlat(x, y);
+  panel.innerHTML = `${back}
+    <div><h2>Tree crown #${i + 1}</h2><p class="sub">Found as a local high point in the 2019 lidar canopy height model. Lidar can't tell the species.</p></div>
+    <div class="facts">
+      <div><span class="k">Height</span><span class="v">${fmt(ht * M2FT, 0)} ft</span><span class="s">${fmt(ht,1)} m above bare earth</span></div>
+      <div><span class="k">Crown width</span><span class="v">${fmt(cr * 2 * M2FT, 0)} ft</span><span class="s">${fmt(cr * 2,1)} m, averaged over 8 directions</span></div>
+      <div><span class="k">Ground elevation</span><span class="v">${fmt(gz * M2FT, 0)} ft</span><span class="s">${fmt(gz,1)} m NAVD88</span></div>
+      <div><span class="k">Location</span><span class="v" style="font-size:12px">${la.toFixed(5)}, ${lo.toFixed(5)}</span><span class="s">${fmt(Math.hypot(x, y),0)} m from the Visitor Center</span></div>
+    </div>
+    <section><h3>Plants recorded within 40 m <span class="tag">iNaturalist · live</span></h3><div id="inatTree" class="sightings sub">Loading…</div></section>
+    <p class="note">In dense canopy, automatic crown detection can merge neighbouring trees or split one tree into two. Heights are more reliable than crown counts. A 2019 survey won't show trees lost or planted since.</p>`;
+  wireBack(); loadSightings({lat:la, lng:lo, radius:0.04, iconic_taxa:"Plantae", per_page:6}, "inatTree");
+}
+function renderFeature(f, back){
+  const t = f.tags, [lo, la] = lonlat(f.x, f.y);
+  const kind = t.tourism || t.amenity || t.leisure || t.landuse || t.man_made || t.waterway || "";
+  panel.innerHTML = `${back}<div><h2>${esc(f.name)}</h2><p class="sub">${esc(t.description || kind.replace(/_/g, " "))}</p></div>
+    <table class="kv">${Object.entries(t).filter(([k]) => k !== "name" && k !== "description").map(([k,v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}
+    <tr><td>location</td><td>${la.toFixed(5)}, ${lo.toFixed(5)}</td></tr><tr><td>OSM</td><td><a href="https://www.openstreetmap.org/${f.osm}" target="_blank" rel="noopener">${f.osm}</a></td></tr></table>`;
+  wireBack(); fly(new THREE.Vector3(f.x, f.y, h(f.x, f.y)), 90, [0.5, -0.75, 0.6]);
+}
+function renderGround(p, back){
+  const [lo, la] = lonlat(p.x, p.y);
+  panel.innerHTML = `${back}<div><h2>Ground point</h2><p class="sub">${la.toFixed(5)}, ${lo.toFixed(5)}</p></div>
+    <div class="facts"><div><span class="k">Elevation</span><span class="v">${fmt((p.z + Z0) * M2FT, 0)} ft</span><span class="s">${fmt(p.z + Z0,1)} m NAVD88 (3DEP)</span></div>
+    <div><span class="k">From the Visitor Center</span><span class="v">${fmt(Math.hypot(p.x, p.y), 0)} m</span><span class="s">straight-line</span></div></div>
+    <section><h3>Recorded within 100 m <span class="tag">iNaturalist · live</span></h3><div id="inatG" class="sightings sub">Loading…</div></section>`;
+  wireBack(); loadSightings({lat:la, lng:lo, radius:0.1, per_page:6}, "inatG");
+}
+
+// ---------------------------------------------------------------- live feeds
+let wxCache = null;
+async function getJ(url, opts = {}){
+  const r = await fetch(url, {...opts, signal:AbortSignal.timeout(8000)});
+  if (!r.ok) throw new Error("HTTP " + r.status); return r.json();
+}
+async function loadWeather(){
+  const el = $("wx"); if (!el) return;
+  if (wxCache && Date.now() - wxCache.t < 600000){ el.innerHTML = wxCache.html.join(""); return; }
+  const parts = ["<p class='note'>Loading site weather…</p>", "<p class='note'>Loading KUNV…</p>"];
+  const paint = () => { const e = $("wx"); if (e) e.innerHTML = parts.join(""); };
+  paint();
+  const a = (async () => {
+    try {
+      const j = await getJ(`https://api.open-meteo.com/v1/forecast?latitude=${SITE.lat}&longitude=${SITE.lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation,cloud_cover&daily=sunrise,sunset&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=America%2FNew_York&forecast_days=1`), c = j.current;
+      const t = s => new Date(s).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+      parts[0] = `<div class="facts"><div><span class="k">Air temperature</span><span class="v">${fmt(c.temperature_2m,0)}°F</span><span class="s">RH ${fmt(c.relative_humidity_2m,0)}%</span></div>
+        <div><span class="k">Wind · cloud</span><span class="v">${fmt(c.wind_speed_10m,0)} mph</span><span class="s">${fmt(c.cloud_cover,0)}% cloud · ${fmt(c.precipitation,2)} in precip</span></div>
+        <div><span class="k">Sunrise</span><span class="v">${t(j.daily.sunrise[0])}</span><span class="s">at the site</span></div><div><span class="k">Sunset</span><span class="v">${t(j.daily.sunset[0])}</span><span class="s">at the site</span></div></div>
+        <p class="note">Modelled for this exact spot by Open-Meteo. No public weather station on the site was found. Updated ${esc(new Date(c.time).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}.</p>`;
+    } catch(e){ parts[0] = `<p class="note">Site weather unavailable (${esc(e.message)}).</p>`; }
+    paint();
+  })();
+  const b = (async () => {
+    try {
+      const p = (await getJ("https://api.weather.gov/stations/KUNV/observations/latest", {headers:{Accept:"application/geo+json"}})).properties;
+      const f = p.temperature?.value == null ? "–" : fmt(p.temperature.value * 9/5 + 32, 0);
+      parts[1] = `<p class="note">Nearest station, KUNV (University Park Airport, about 21 km NNE): ${f}°F, ${esc(p.textDescription || "")}, observed ${esc(new Date(p.timestamp).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}))}.</p>`;
+    } catch(e){ parts[1] = `<p class="note">KUNV station unavailable (${esc(e.message)}).</p>`; }
+    paint();
+  })();
+  await Promise.all([a, b]);
+  if (!parts.join("").includes("unavailable")) wxCache = {t:Date.now(), html:parts.slice()};
+}
+const sightCache = new Map();
+async function inat(params){
+  const q = new URLSearchParams({order_by:"observed_on", order:"desc", photos:"true", quality_grade:"research,needs_id", ...params});
+  const k = q.toString(); if (sightCache.has(k)) return sightCache.get(k);
+  const p = fetch("https://api.inaturalist.org/v1/observations?" + k, {signal:AbortSignal.timeout(10000)}).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+  sightCache.set(k, p); p.catch(() => sightCache.delete(k)); return p;
+}
+function sightHTML(o){
+  const ph = safeUrl(o.photos?.[0]?.url), nm = o.taxon?.preferred_common_name || o.taxon?.name || "Unknown";
+  return `<a class="sight" href="${esc(safeUrl(o.uri))}" target="_blank" rel="noopener"><img src="${esc(ph)}" alt="" loading="lazy"><span><span class="n">${esc(nm)}</span><br><span class="m">${esc(o.observed_on || "")} · ${esc(o.user?.login || "")} · ${esc(o.license_code || "all rights reserved")}${o.obscured ? " · location obscured" : ""}</span></span></a>`;
+}
+async function loadSightings(params, target = "inat"){
+  const el = $(target); if (!el) return;
+  try {
+    const j = await inat(params || {lat:SITE.lat, lng:SITE.lon, radius:0.6, per_page:8});
+    el.innerHTML = j.results.length ? j.results.map(sightHTML).join("") + `<p class="note">${j.total_results.toLocaleString()} observations in this radius. Photos © their observers.</p>` : `<p class="note">No observations recorded here yet.</p>`;
+  } catch(e){ el.innerHTML = `<p class="note">iNaturalist unavailable (${esc(e.message)}).</p>`; }
+}
+let sightingsBuilt = false;
+async function buildSightings(){
+  if (sightingsBuilt) return; sightingsBuilt = true;
+  try {
+    const j = await inat({lat:SITE.lat, lng:SITE.lon, radius:0.25, per_page:40});
+    const fromLL = (la, lo) => { // invert the affine frame
+      const [a,b,c] = F.lon, [d,e,f] = F.lat, det = a*e - b*d, u = lo - c, v = la - f; return [(e*u - b*v)/det, (a*v - d*u)/det]; };
+    for (const o of j.results){
+      if (!o.location || o.obscured) continue;
+      const [la, lo] = o.location.split(",").map(Number), [x, y] = fromLL(la, lo);
+      if (Math.abs(x) > F.pts || Math.abs(y) > F.pts) continue;
+      const z = h(x, y), g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, y, z + 6)]);
+      layers.sightings.add(new THREE.Line(g, new THREE.LineBasicMaterial({color:0xe2a93a})));
+      addLabel(o.taxon?.preferred_common_name || o.taxon?.name || "?", x, y, z + 6.5, "obs", () => {
+        panel.innerHTML = `<button class="back" id="back">← Site overview</button><div><h2>${esc(o.taxon?.preferred_common_name || o.taxon?.name)}</h2><p class="sub"><i>${esc(o.taxon?.name || "")}</i></p></div>
+          ${o.photos?.[0] ? `<img src="${esc(safeUrl(o.photos[0].url).replace("square","medium"))}" alt="" style="width:100%;border-radius:8px">` : ""}
+          <table class="kv"><tr><td>Observed</td><td>${esc(o.observed_on)}</td></tr><tr><td>Observer</td><td>${esc(o.user?.login)}</td></tr><tr><td>Quality</td><td>${esc(o.quality_grade)}</td></tr><tr><td>Accuracy</td><td>${Number.isFinite(+o.positional_accuracy) && o.positional_accuracy != null ? Math.round(+o.positional_accuracy) + " m" : "not given"}</td></tr><tr><td>License</td><td>${esc(o.license_code || "all rights reserved")}</td></tr></table>
+          <a href="${esc(safeUrl(o.uri))}" target="_blank" rel="noopener">Open on iNaturalist</a>`; wireBack(); });
+    }
+  } catch(e){ console.warn("sightings", e); sightingsBuilt = false; }
+}
+
+// ---------------------------------------------------------------- toolbar
+document.querySelectorAll("[data-layer]").forEach(btn => btn.addEventListener("click", async () => {
+  const k = btn.dataset.layer, on = btn.getAttribute("aria-pressed") !== "true"; btn.setAttribute("aria-pressed", on);
+  if (k === "labels") state.labels = on; else layers[k].visible = on;
+  if (k === "points" && on && !pts) { try { await buildPoints(); } catch(e){ report("the lidar points", e); } }
+  if (k === "sightings" && on) await buildSightings();
+  legend();
+}));
+$("bMode").onchange = e => { state.bMode = e.target.value; colorBuildings(); };
+$("pMode").onchange = e => { state.pMode = e.target.value; colorPoints(); };
+$("pSize").oninput = e => { if (pts) pts.material.size = +e.target.value; };
+$("vHome").onclick = home;
+$("vTop").onclick = () => fly(new THREE.Vector3(0, 0, 0), 520, [0.0001, -0.0001, 1]);
+$("vLodge").onclick = () => { const vc = T.buildings.find(b => b.name === "Shaver's Creek Visitor Center"); if (vc){ select({b:vc}); focusB(vc); } };
+$("vLake").onclick = () => fly(new THREE.Vector3(-170, -330, h(-170, -330)), 520, [0.3, 0.8, 0.55]);
+
+function report(what, e){
+  console.error(what, e); statusEl.hidden = false;
+  const pre = document.createElement("pre"); pre.textContent = `Could not load ${what}\n${e && e.stack || e}`; statusEl.replaceChildren(pre);
+}
+
+// ---------------------------------------------------------------- boot
+async function boot(){
+  try {
+    statusEl.textContent = "Loading model…";
+    T = await getJSON("twin.json"); F = T.frame; N = F.demN; PX = F.demPx;
+    dem = new Float32Array(await getBuf("terrain.f32"));
+    Z0 = dem[Math.floor(N / 2) * N + Math.floor(N / 2)];
+    await buildTerrain(); buildBuildings(); buildTrees(); buildLines(); buildLabels();
+    layers.trees.visible = false; layers.points.visible = false; layers.sightings.visible = false;
+    statusEl.hidden = true; home(); render(); legend();
+    $("meta").textContent = `Lidar 2019 (USGS 3DEP) · ${T.trees.length.toLocaleString()} trees detected · ${T.buildings.length} buildings · built ${T.generated}`;
+    $("about").innerHTML = `<p>This model is assembled only from public data. Terrain is the USGS 3DEP bare-earth elevation model. Imagery is USDA NAIP from May 2022 (0.6 m), served by USGS. The point cloud, roof shapes, building heights and tree crowns come from the 2019 USGS lidar survey (PA Northcentral, QL2). Building outlines, trails and named places come from OpenStreetMap (© OpenStreetMap contributors, ODbL). The roof-change view compares the 2019 survey with the 2006–08 PAMAP statewide survey on a 2 m grid.</p>
+      <p>Heights are measured, not modelled. Walls are drawn straight down from the lidar roof edge to the lowest ground corner. Inside the Visitor Center, rooms are listed but not drawn, because no floor plans are public. Live weather comes from Open-Meteo (a model) and the NWS KUNV station. Live sightings come from iNaturalist. Obscured observations are never placed on the map.</p>
+      <p>This view is for exploring, not for taking measurements. Contact the Penn State Heritage 3D Lab for the processed datasets.</p>`;
+  } catch(e){ report("the model", e); return; }
+  (function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); placeLabels(); })();
+}
+
+// ---------------------------------------------------------------- gate (published copy only; dev copy has no gate.json)
+(async function(){
+  const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  let G = null;
+  try { const r = await fetch("gate.json"); if (r.ok) G = await r.json(); } catch(e){}
+  if (!G) return boot();
+  const gate = document.createElement("div"); gate.id = "gate";
+  gate.innerHTML = `<form id="gateform"><p class="eyebrow">Penn State Heritage 3D Lab</p><h1 style="font-size:22px">Shaver's Creek digital twin</h1>
+    <label for="pw" class="sub">Enter the password to view.</label><input id="pw" type="password" autocomplete="current-password" required>
+    <label class="sub" style="display:flex;gap:8px;align-items:center"><input id="remember" type="checkbox" checked> Remember on this device for 30 days</label>
+    <button type="submit">View</button><p id="gatemsg" class="sub" role="alert" style="margin:0;min-height:1.2em"></p></form>`;
+  document.body.appendChild(gate);
+  const tryKey = async k => { const u = b64(G.check); try { await crypto.subtle.decrypt({name:"AES-GCM", iv:u.slice(0,12)}, k, u.slice(12)); return true; } catch(e){ return false; } };
+  const open = k => { KEY = k; gate.remove(); boot(); };
+  // "Remember" keeps a non-extractable CryptoKey in IndexedDB (never raw key bytes), expiring after 30 days
+  const idb = () => new Promise((res, rej) => { const r = indexedDB.open("scec-twin", 1); r.onupgradeneeded = () => r.result.createObjectStore("k"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  const idbGet = async () => { const db = await idb(); return new Promise(res => { const q = db.transaction("k").objectStore("k").get("key"); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); };
+  const idbPut = async v => { const db = await idb(); return new Promise(res => { const t = db.transaction("k", "readwrite"); t.objectStore("k").put(v, "key"); t.oncomplete = res; t.onerror = res; }); };
+  const idbDel = async () => { try { const db = await idb(); db.transaction("k", "readwrite").objectStore("k").delete("key"); } catch(e){} };
+  try { localStorage.removeItem("scec-twin-key"); } catch(e){}
+  try { const s = await idbGet();
+    if (s && s.exp > Date.now() && s.salt === G.salt && await tryKey(s.key)) return open(s.key);
+    if (s) await idbDel(); } catch(e){}
+  $("gateform").addEventListener("submit", async e => {
+    e.preventDefault(); const msg = $("gatemsg"); msg.textContent = "Checking…";
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode($("pw").value.trim().toLowerCase()), "PBKDF2", false, ["deriveKey"]);
+    const k = await crypto.subtle.deriveKey({name:"PBKDF2", salt:b64(G.salt), iterations:G.iter, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, false, ["decrypt"]);
+    if (!(await tryKey(k))){ msg.textContent = "That password didn't work."; return; }
+    if ($("remember").checked){ try { await idbPut({key:k, salt:G.salt, exp:Date.now() + 30*864e5}); } catch(e){} }
+    open(k);
+  });
+})();
+</script>
+</body>
+</html>
