@@ -46,18 +46,24 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .chip{background:rgba(18,22,26,.86);color:var(--stage-ink);border:1px solid rgba(230,235,230,.2);border-radius:6px;padding:5px 9px;font:600 12px var(--sans);display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
 .chip:hover{border-color:rgba(230,235,230,.55)}
 .chip[aria-expanded="true"]{border-color:#86c79a}
-.drawer{background:rgba(18,22,26,.92);color:var(--stage-ink);border:1px solid rgba(230,235,230,.18);border-radius:8px;padding:8px;display:grid;gap:8px;overflow:auto;min-height:0;width:100%}
-.drawer .grp{display:grid;gap:4px}
-.drawer h4{margin:2px 2px 0;font:600 10px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:rgba(230,235,230,.6)}
+.drawer{background:rgba(18,22,26,.94);color:var(--stage-ink);border:1px solid rgba(230,235,230,.18);border-radius:8px;padding:6px 8px;display:grid;gap:2px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;width:max-content;max-width:100%}
+.drawer .grp{border-top:1px solid rgba(230,235,230,.1);padding:2px 0}
+.drawer .grp:first-child{border-top:0}
+.drawer summary{cursor:pointer;list-style:none;font:600 10px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:rgba(230,235,230,.62);padding:4px 2px}
+.drawer summary::-webkit-details-marker{display:none}
+.drawer summary::before{content:"▸";display:inline-block;width:12px;transition:transform .15s}
+.drawer details[open] summary::before{transform:rotate(90deg)}
+.drawer .row{display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;padding-left:12px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .tog{display:flex;align-items:center;gap:8px;background:none;border:0;color:var(--stage-ink);font:500 13px var(--sans);padding:4px 4px;border-radius:5px;cursor:pointer;text-align:left}
 .tog:hover{background:rgba(255,255,255,.07)}
 .tog::before{content:"";flex:none;width:26px;height:14px;border-radius:7px;background:#4a524d;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);transition:background .15s}
 .tog[aria-pressed="true"]::before{background:#3f8f59 radial-gradient(circle at 19px 7px,#fff 5px,transparent 5.5px)}
 .tog[aria-pressed="false"]::before{background:#4a524d radial-gradient(circle at 7px 7px,#cfd5d0 5px,transparent 5.5px)}
-.sel{display:flex;align-items:center;gap:8px;font:500 12px var(--sans);color:rgba(230,235,230,.8);padding:0 4px 2px 38px}
+.sel{display:flex;align-items:center;gap:6px;font:500 12px var(--sans);color:rgba(230,235,230,.8);padding:2px 0}
 .sel select{background:#262c30;color:var(--stage-ink);border:1px solid rgba(230,235,230,.2);border-radius:5px;font:inherit;padding:2px 4px;max-width:190px}
 .sel input[type=range]{width:110px;accent-color:#86c79a}
-.legend{background:rgba(18,22,26,.88);color:var(--stage-ink);border-radius:8px;padding:8px 10px;font-size:12px;display:grid;gap:3px;overflow:auto;min-height:0}
+.legend{background:rgba(18,22,26,.88);color:var(--stage-ink);border-radius:8px;padding:8px 10px;font-size:12px;display:grid;gap:3px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .legend b{margin-top:4px}.legend b:first-child{margin-top:0}
 .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 .legend .ramp{height:9px;border-radius:3px;margin:2px 0}
@@ -143,26 +149,19 @@ details summary{cursor:pointer;color:var(--ink-2);font-weight:600;font-size:13px
       <div class="ov tl">
         <button class="chip" id="btnLayers" type="button" aria-expanded="false" aria-controls="drawer">☰ Layers</button>
         <div class="drawer" id="drawer" hidden>
-          <div class="grp"><h4>Base</h4>
-            <button class="tog" data-layer="terrain" aria-pressed="true">Terrain + imagery</button>
-            <label class="sel" id="imgChip" hidden>Imagery <select id="iMode"><option value="nearmap">Nearmap 2025</option><option value="naip">NAIP 2022</option></select></label>
-            <button class="tog" data-layer="lines" aria-pressed="true">Trails + water</button>
-            <button class="tog" data-layer="labels" aria-pressed="true">Labels</button></div>
-          <div class="grp"><h4>Buildings</h4>
-            <button class="tog" data-layer="buildings" aria-pressed="true">Buildings</button>
-            <label class="sel">Color <select id="bMode"><option value="type">by use</option><option value="change">2006–08 → 2019 roof change</option></select></label></div>
-          <div class="grp"><h4>Trees and forest</h4>
-            <button class="tog" data-layer="trees" aria-pressed="false">Tree crowns (lidar)</button>
-            <label class="sel" id="tChip" hidden>Color <select id="tMode"><option value="height">by height</option><option value="leaf">conifer score (experimental)</option><option value="stand">stand type</option><option value="survey">nearest surveyed stem</option></select></label>
-            <button class="tog" data-layer="stems" aria-pressed="false" hidden>Surveyed stems (Shale Hills)</button>
-            <button class="tog" data-layer="obsTrees" aria-pressed="false" hidden>Tree records (GBIF)</button></div>
-          <div class="grp"><h4>Lidar points</h4>
-            <button class="tog" data-layer="points" aria-pressed="false">Point cloud (2019)</button>
-            <label class="sel">Color <select id="pMode"><option value="photo">photo color</option><option value="class">lidar class</option><option value="height">height</option></select></label>
-            <label class="sel">Size <input id="pSize" type="range" min="0.5" max="4" step="0.1" value="1.6"></label></div>
-          <div class="grp"><h4>Live and people</h4>
-            <button class="tog" data-layer="stations" aria-pressed="true">Photo stations (Chronolog)</button>
-            <button class="tog" data-layer="sightings" aria-pressed="false">Live sightings (iNaturalist)</button></div>
+          <details class="grp" open><summary>Base</summary>
+            <div class="row"><button class="tog" data-layer="terrain" aria-pressed="true">Terrain</button><label class="sel" id="imgChip" hidden><span class="vh">Imagery</span><select id="iMode" aria-label="Imagery"><option value="nearmap">Nearmap 2025</option><option value="naip">NAIP 2022</option></select></label></div>
+            <div class="row"><button class="tog" data-layer="lines" aria-pressed="true">Trails + water</button><button class="tog" data-layer="labels" aria-pressed="true">Labels</button></div></details>
+          <details class="grp" open><summary>Buildings</summary>
+            <div class="row"><button class="tog" data-layer="buildings" aria-pressed="true">Buildings</button><label class="sel"><select id="bMode" aria-label="Building colour"><option value="type">by use</option><option value="change">roof change 2006–08 → 2019</option></select></label></div></details>
+          <details class="grp" open><summary>Trees and forest</summary>
+            <div class="row"><button class="tog" data-layer="trees" aria-pressed="false">Crowns</button><label class="sel" id="tChip" hidden><select id="tMode" aria-label="Tree colour"><option value="height">by height</option><option value="leaf">conifer score (exp.)</option><option value="stand">stand type</option><option value="survey">nearest surveyed stem</option></select></label></div>
+            <div class="row"><button class="tog" data-layer="stems" aria-pressed="false" hidden>Surveyed stems</button><button class="tog" data-layer="obsTrees" aria-pressed="false" hidden>Tree records</button></div></details>
+          <details class="grp"><summary>Lidar points</summary>
+            <div class="row"><button class="tog" data-layer="points" aria-pressed="false">Points</button><label class="sel"><select id="pMode" aria-label="Point colour"><option value="photo">photo color</option><option value="class">lidar class</option><option value="height">height</option></select></label></div>
+            <div class="row"><label class="sel">Size <input id="pSize" type="range" min="0.5" max="4" step="0.1" value="1.6"></label></div></details>
+          <details class="grp" open><summary>Live and people</summary>
+            <div class="row"><button class="tog" data-layer="stations" aria-pressed="true">Photo stations</button><button class="tog" data-layer="sightings" aria-pressed="false">Sightings</button></div></details>
         </div>
       </div>
       <div class="ov tr">
@@ -896,8 +895,23 @@ $("vLake").onclick = () => fly(new THREE.Vector3(-170, -330, h(-170, -330)), 520
 
 // ---------------------------------------------------------------- overlay controls (collapsible)
 const narrow = () => matchMedia("(max-width:600px)").matches;
-function setDrawer(open){ $("drawer").hidden = !open; $("btnLayers").setAttribute("aria-expanded", open); if (open && narrow()) setLegend(false); }
-function setLegend(open){ $("btnLegend").setAttribute("aria-expanded", open); legend(); if (open && narrow()) setDrawer(false); }
+// overlays get an explicit height limit so they scroll inside the map instead of spilling over it
+function fitOverlays(){
+  const st = document.querySelector(".stage").getBoundingClientRect(), bar = document.querySelector(".ov.bl").getBoundingClientRect();
+  const room = Math.max(120, bar.top - st.top - 10);
+  const d = $("drawer"), lg = $("legend");
+  d.style.maxHeight = Math.max(100, room - ($("btnLayers").offsetHeight + 16)) + "px";
+  lg.style.maxHeight = Math.max(100, room - ($("btnLegend").offsetHeight + $("btnPanel").offsetHeight * (getComputedStyle($("btnPanel")).display === "none" ? 0 : 1) + 22)) + "px";
+}
+function setDrawer(open){ $("drawer").hidden = !open; $("btnLayers").setAttribute("aria-expanded", open); if (open){ fitOverlays(); if (narrow()) setLegend(false); } }
+function setLegend(open){ $("btnLegend").setAttribute("aria-expanded", open); legend(); fitOverlays(); if (open && narrow()) setDrawer(false); }
+new ResizeObserver(fitOverlays).observe(document.querySelector(".stage"));
+document.querySelectorAll("#drawer details").forEach(d => d.addEventListener("toggle", fitOverlays));
+// keep wheel/touch scrolling inside the overlays (never scroll the page from on top of the map)
+for (const el of [$("drawer"), $("legend")]){
+  el.addEventListener("wheel", e => { const atTop = el.scrollTop <= 0 && e.deltaY < 0, atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 1 && e.deltaY > 0;
+    if (atTop || atEnd || el.scrollHeight <= el.clientHeight) e.preventDefault(); e.stopPropagation(); }, {passive:false});
+}
 $("btnLayers").onclick = () => setDrawer($("drawer").hidden);
 $("btnLegend").onclick = () => setLegend($("btnLegend").getAttribute("aria-expanded") !== "true");
 $("btnPanel").onclick = () => { const hide = document.querySelector(".layout").classList.toggle("nopanel");
