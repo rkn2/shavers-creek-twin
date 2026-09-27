@@ -38,18 +38,35 @@ h1{font:700 clamp(22px,3vw,30px)/1.15 var(--serif);margin:2px 0 0;text-wrap:bala
 canvas{display:block;width:100%;height:100%;touch-action:none}
 .status{position:absolute;inset:0;display:grid;place-items:center;color:var(--stage-ink);font-size:14px;padding:16px;text-align:center;pointer-events:none}
 .status pre{white-space:pre-wrap;text-align:left;font:12px/1.5 var(--mono);pointer-events:auto;user-select:text;max-width:100%}
-.bar{position:absolute;left:10px;right:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;pointer-events:none}
-.bar.topbar{top:10px}.bar.bottom{bottom:10px}
-.bar>*{pointer-events:auto}
-.chip{background:rgba(18,22,26,.84);color:var(--stage-ink);border:1px solid rgba(230,235,230,.18);border-radius:6px;padding:5px 9px;font:600 12px var(--sans);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
-.chip:hover{border-color:rgba(230,235,230,.5)}
-.chip[aria-pressed="true"]{background:#2f6b3f;border-color:#86c79a}
-.chip select{background:transparent;color:inherit;border:0;font:inherit;padding:0;width:auto;max-width:190px}
-.chip select option{color:#111}
-.chip input[type=range]{width:80px;accent-color:#86c79a}
-.legend{position:absolute;right:10px;top:52px;background:rgba(18,22,26,.84);color:var(--stage-ink);border-radius:8px;padding:8px 10px;font-size:12px;display:grid;gap:3px;max-width:240px}
+.ov{position:absolute;display:flex;gap:6px;z-index:2;pointer-events:none}
+.ov>*{pointer-events:auto}
+.ov.tl{top:10px;left:10px;flex-direction:column;align-items:flex-start;max-width:min(320px,calc(100% - 20px));max-height:calc(100% - 64px)}
+.ov.tr{top:10px;right:10px;flex-direction:column;align-items:flex-end;max-width:min(270px,calc(100% - 20px));max-height:calc(100% - 64px)}
+.ov.bl{left:10px;bottom:10px;flex-wrap:wrap;max-width:calc(100% - 20px)}
+.chip{background:rgba(18,22,26,.86);color:var(--stage-ink);border:1px solid rgba(230,235,230,.2);border-radius:6px;padding:5px 9px;font:600 12px var(--sans);display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
+.chip:hover{border-color:rgba(230,235,230,.55)}
+.chip[aria-expanded="true"]{border-color:#86c79a}
+.drawer{background:rgba(18,22,26,.92);color:var(--stage-ink);border:1px solid rgba(230,235,230,.18);border-radius:8px;padding:8px;display:grid;gap:8px;overflow:auto;min-height:0;width:100%}
+.drawer .grp{display:grid;gap:4px}
+.drawer h4{margin:2px 2px 0;font:600 10px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:rgba(230,235,230,.6)}
+.tog{display:flex;align-items:center;gap:8px;background:none;border:0;color:var(--stage-ink);font:500 13px var(--sans);padding:4px 4px;border-radius:5px;cursor:pointer;text-align:left}
+.tog:hover{background:rgba(255,255,255,.07)}
+.tog::before{content:"";flex:none;width:26px;height:14px;border-radius:7px;background:#4a524d;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);transition:background .15s}
+.tog[aria-pressed="true"]::before{background:#3f8f59 radial-gradient(circle at 19px 7px,#fff 5px,transparent 5.5px)}
+.tog[aria-pressed="false"]::before{background:#4a524d radial-gradient(circle at 7px 7px,#cfd5d0 5px,transparent 5.5px)}
+.sel{display:flex;align-items:center;gap:8px;font:500 12px var(--sans);color:rgba(230,235,230,.8);padding:0 4px 2px 38px}
+.sel select{background:#262c30;color:var(--stage-ink);border:1px solid rgba(230,235,230,.2);border-radius:5px;font:inherit;padding:2px 4px;max-width:190px}
+.sel input[type=range]{width:110px;accent-color:#86c79a}
+.legend{background:rgba(18,22,26,.88);color:var(--stage-ink);border-radius:8px;padding:8px 10px;font-size:12px;display:grid;gap:3px;overflow:auto;min-height:0}
+.legend b{margin-top:4px}.legend b:first-child{margin-top:0}
 .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 .legend .ramp{height:9px;border-radius:3px;margin:2px 0}
+.credit{position:absolute;right:10px;bottom:12px;z-index:2;max-width:min(360px,45%);background:none;border:0;padding:2px 4px;color:rgba(230,235,230,.72);font:11px/1.35 var(--sans);text-align:right;text-shadow:0 1px 2px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.credit[aria-expanded="true"]{white-space:normal;background:rgba(18,22,26,.9);border-radius:6px;padding:6px 8px;text-shadow:none}
+.layout.nopanel{grid-template-columns:minmax(0,1fr)}
+.layout.nopanel .panel{display:none}
+@media (max-width:960px){#btnPanel{display:none}}
+@media (max-width:600px){.credit{max-width:calc(100% - 20px);bottom:46px;left:10px;right:auto;text-align:left}.ov.tr{max-width:calc(100% - 110px)}}
 .labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .lbl{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;font:600 11px var(--sans);color:#fff;background:rgba(18,22,26,.72);padding:2px 6px;border-radius:4px;pointer-events:auto;cursor:pointer;border:1px solid transparent}
 .lbl:hover,.lbl.sel{border-color:#86c79a}
@@ -70,8 +87,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .camrow{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;background:none;border:1px solid var(--line);border-radius:8px;padding:6px;text-align:left;cursor:pointer}
 .camrow:hover{border-color:var(--accent)}
 .camrow img{width:96px;height:48px;object-fit:cover;border-radius:4px;background:var(--grid)}
-@media (max-width:600px){.legend{top:auto;bottom:96px;left:10px;right:auto;max-width:70%;font-size:11px}.hint{display:none}}
-.hint{position:absolute;right:12px;top:auto;bottom:auto;display:none;color:rgba(230,235,230,.6);font-size:12px;pointer-events:none}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:14px;align-content:start;min-width:0;max-height:min(78vh,780px);overflow:auto}
 @media (max-width:960px){.panel{max-height:none}}
 .panel h2{font:700 19px/1.2 var(--serif);margin:0}
@@ -124,33 +139,44 @@ details summary{cursor:pointer;color:var(--ink-2);font-weight:600;font-size:13px
     <section class="stage" aria-label="3D site model">
       <canvas id="c" aria-label="Interactive 3D model of the Shaver's Creek Visitor Center and its surroundings"></canvas>
       <div class="labels" id="labels"></div>
-      <div id="imgnote" style="position:absolute;left:10px;max-width:min(560px,70%);color:rgba(230,235,230,.78);font-size:11px;line-height:1.35;pointer-events:none;text-shadow:0 1px 2px #000"></div>
       <div class="status" id="status">Loading…</div>
-      <div class="bar topbar" role="toolbar" aria-label="Layers">
-        <button class="chip" data-layer="terrain" aria-pressed="true">Terrain + imagery</button>
-        <button class="chip" data-layer="buildings" aria-pressed="true">Buildings</button>
-        <button class="chip" data-layer="trees" aria-pressed="false">Trees</button>
-        <button class="chip" data-layer="points" aria-pressed="false">Lidar points</button>
-        <button class="chip" data-layer="lines" aria-pressed="true">Trails + water</button>
-        <button class="chip" data-layer="labels" aria-pressed="true">Labels</button>
-        <button class="chip" data-layer="stems" aria-pressed="false" hidden>Surveyed stems</button>
-        <button class="chip" data-layer="obsTrees" aria-pressed="false" hidden>Tree records</button>
-        <button class="chip" data-layer="stations" aria-pressed="true">Photo stations</button>
-        <button class="chip" data-layer="sightings" aria-pressed="false">Live sightings</button>
+      <div class="ov tl">
+        <button class="chip" id="btnLayers" type="button" aria-expanded="false" aria-controls="drawer">☰ Layers</button>
+        <div class="drawer" id="drawer" hidden>
+          <div class="grp"><h4>Base</h4>
+            <button class="tog" data-layer="terrain" aria-pressed="true">Terrain + imagery</button>
+            <label class="sel" id="imgChip" hidden>Imagery <select id="iMode"><option value="nearmap">Nearmap 2025</option><option value="naip">NAIP 2022</option></select></label>
+            <button class="tog" data-layer="lines" aria-pressed="true">Trails + water</button>
+            <button class="tog" data-layer="labels" aria-pressed="true">Labels</button></div>
+          <div class="grp"><h4>Buildings</h4>
+            <button class="tog" data-layer="buildings" aria-pressed="true">Buildings</button>
+            <label class="sel">Color <select id="bMode"><option value="type">by use</option><option value="change">2006–08 → 2019 roof change</option></select></label></div>
+          <div class="grp"><h4>Trees and forest</h4>
+            <button class="tog" data-layer="trees" aria-pressed="false">Tree crowns (lidar)</button>
+            <label class="sel" id="tChip" hidden>Color <select id="tMode"><option value="height">by height</option><option value="leaf">conifer score (experimental)</option><option value="stand">stand type</option><option value="survey">nearest surveyed stem</option></select></label>
+            <button class="tog" data-layer="stems" aria-pressed="false" hidden>Surveyed stems (Shale Hills)</button>
+            <button class="tog" data-layer="obsTrees" aria-pressed="false" hidden>Tree records (GBIF)</button></div>
+          <div class="grp"><h4>Lidar points</h4>
+            <button class="tog" data-layer="points" aria-pressed="false">Point cloud (2019)</button>
+            <label class="sel">Color <select id="pMode"><option value="photo">photo color</option><option value="class">lidar class</option><option value="height">height</option></select></label>
+            <label class="sel">Size <input id="pSize" type="range" min="0.5" max="4" step="0.1" value="1.6"></label></div>
+          <div class="grp"><h4>Live and people</h4>
+            <button class="tog" data-layer="stations" aria-pressed="true">Photo stations (Chronolog)</button>
+            <button class="tog" data-layer="sightings" aria-pressed="false">Live sightings (iNaturalist)</button></div>
+        </div>
       </div>
-      <div class="legend" id="legend"></div>
-      <div class="hint" id="hint">Drag to orbit · right-drag to pan · scroll to zoom · click anything</div>
-      <div class="bar bottom" role="toolbar" aria-label="View">
+      <div class="ov tr">
+        <button class="chip" id="btnPanel" type="button" aria-expanded="true" aria-controls="panel">Hide details ⟩</button>
+        <button class="chip" id="btnLegend" type="button" aria-expanded="true" aria-controls="legend">Legend</button>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="ov bl bar" role="toolbar" aria-label="View">
         <button class="chip" id="vHome">Home</button>
         <button class="chip" id="vTop">Top</button>
         <button class="chip" id="vLodge">Visitor Center</button>
         <button class="chip" id="vLake">Lake Perez</button>
-        <label class="chip" id="imgChip" hidden>Imagery <select id="iMode"><option value="nearmap">Nearmap 2025</option><option value="naip">NAIP 2022</option></select></label>
-        <label class="chip">Buildings <select id="bMode"><option value="type">by use</option><option value="change">2006–08 → 2019 change</option></select></label>
-        <label class="chip" id="tChip" hidden>Trees <select id="tMode"><option value="height">by height</option><option value="leaf">conifer score (experimental)</option><option value="stand">stand type</option><option value="survey">nearest surveyed stem</option></select></label>
-        <label class="chip">Points <select id="pMode"><option value="photo">photo color</option><option value="class">lidar class</option><option value="height">height</option></select></label>
-        <label class="chip">Size <input id="pSize" type="range" min="0.5" max="4" step="0.1" value="1.6"></label>
       </div>
+      <button class="credit" id="imgnote" type="button" aria-expanded="false" title="Imagery credit"></button>
     </section>
     <aside class="panel" id="panel" aria-label="Details"></aside>
   </main>
@@ -255,7 +281,6 @@ const lonlat = (x, y) => [F.lon[0]*x + F.lon[1]*y + F.lon[2], F.lat[0]*x + F.lat
 
 function imageryNote(){
   const el = $("imgnote"); if (!el) return;
-  el.style.bottom = (document.querySelector(".bar.bottom").offsetHeight + 16) + "px";
   el.textContent = texNearmap && $("iMode").value === "nearmap"
     ? `Imagery © Nearmap ${NM.captureDate}: ${Math.round(NM.outPixel * 100)} cm near the Visitor Center${texNearmapCtx ? `, ${Math.round(NM.layers.nearmap_ctx.outPixel * 100)} cm elsewhere, with NAIP 2022 filling the gaps` : ", NAIP 2022 beyond"}. Licensed, not for redistribution.`
     : "Imagery: USDA NAIP, May 2022, 0.6 m.";
@@ -491,19 +516,32 @@ const _v = new THREE.Vector3();
 function placeLabels(){
   const w = canvas.clientWidth, hh = canvas.clientHeight, show = state.labels;
   const dist = camera.position.distanceTo(controls.target);
+  const stage = canvas.getBoundingClientRect(), taken = [];
+  // overlays count as occupied so labels don't sit under open panels
+  for (const el of [$("drawer"), $("legend"), document.querySelector(".ov.bl"), $("imgnote"), $("btnLayers"), $("btnLegend"), $("btnPanel")]){
+    if (!el || el.hidden || !el.offsetParent) continue; const r = el.getBoundingClientRect();
+    taken.push([r.left - stage.left - 4, r.top - stage.top - 4, r.right - stage.left + 4, r.bottom - stage.top + 4]); }
+  const cand = [];
   for (const L of labelEls){
     const hideFar = (L.pri === 0 && dist > 700) || (L.pri === 1 && dist > 190);
     if (!show || hideFar || (L.cls === "obs" && !layers.sightings.visible) || (L.cls === "cam" && !layers.stations.visible)){ L.el.hidden = true; continue; }
     _v.copy(L.v).project(camera);
     if (_v.z > 1 || Math.abs(_v.x) > 1.05 || Math.abs(_v.y) > 1.05){ L.el.hidden = true; continue; }
-    L.el.hidden = false; L.el.style.left = ((_v.x + 1) / 2 * w) + "px"; L.el.style.top = ((1 - _v.y) / 2 * hh) + "px";
+    cand.push([L, (_v.x + 1) / 2 * w, (1 - _v.y) / 2 * hh, _v.z]);
+  }
+  const sel = state.sel?.b?.label;
+  cand.sort((a, b) => (b[0] === sel) - (a[0] === sel) || b[0].pri - a[0].pri || a[3] - b[3]);
+  for (const [L, x, y] of cand){
+    if (!L.wd){ L.el.hidden = false; L.wd = L.el.offsetWidth || L.el.textContent.length * 6.5 + 14; L.ht = L.el.offsetHeight || 18; }
+    const r = [x - L.wd / 2, y - L.ht, x + L.wd / 2, y];
+    if (r[0] < 4 || r[2] > w - 4 || r[1] < 4 || taken.some(t => r[0] < t[2] && r[2] > t[0] && r[1] < t[3] && r[3] > t[1])){ L.el.hidden = true; continue; }
+    taken.push(r); L.el.hidden = false; L.el.style.left = x + "px"; L.el.style.top = y + "px";
   }
 }
 
 // ---------------------------------------------------------------- legend
 function legend(){
   const el = $("legend"), rows = [];
-  if (!matchMedia("(max-width:600px)").matches) el.style.top = (document.querySelector(".topbar").offsetHeight + 16) + "px";
   if (layers.buildings.visible){
     if (state.bMode === "type") rows.push("<b>Buildings by use</b>", ...[["main","Visitor Center"],["class","Classrooms"],["aviary","Aviary mews"],["service","Service / support"],["other","Other (unnamed in OSM)"]].map(([k,t]) => `<span><i style="background:#${ROLE_COL[k].toString(16).padStart(6,"0")}"></i>${t}</span>`));
     else rows.push("<b>Roof vs. 2006–08 lidar</b>", `<span><i style="background:var(--c-lodge)"></i>Same height in 2006–08</span>`, `<span><i style="background:var(--c-new)"></i>Ground or trees in 2006–08 (new)</span>`, `<span><i style="background:var(--c-amb)"></i>Changed height or mixed</span>`, `<span><i style="background:var(--c-none)"></i>No comparison</span>`);
@@ -515,7 +553,9 @@ function legend(){
   if (layers.stems.visible && FO && !(layers.trees.visible && state.tMode === "survey")) rows.push("<b>Surveyed stems</b>", ...GROUP.map(g => `<span><i style="background:#${g[2].toString(16).padStart(6,"0")}"></i>${g[1]}</span>`), `<span style="opacity:.75">Shale Hills CZO 2016, Kaye et al., CC BY 4.0</span>`);
   if (layers.points.visible && state.pMode === "class") rows.push(`<b>Lidar class</b><span style="opacity:.7">USGS classes, plus classes derived here</span>`, ...Object.values(CLS).map(c => `<span><i style="background:rgb(${c[0]},${c[1]},${c[2]})"></i>${c[3]}</span>`));
   if (layers.points.visible && state.pMode === "height") rows.push(`<b>Height above ground</b><div class="ramp" style="background:linear-gradient(90deg,rgb(40,60,200),rgb(147,210,110),rgb(255,60,20))"></div><span>0 → 35+ m</span>`);
-  el.innerHTML = rows.join(""); el.hidden = !rows.length;
+  el.innerHTML = rows.join("");
+  const b = $("btnLegend"); b.disabled = !rows.length; b.style.opacity = rows.length ? "" : ".5";
+  el.hidden = !rows.length || b.getAttribute("aria-expanded") !== "true";
 }
 
 // ---------------------------------------------------------------- views
@@ -530,7 +570,7 @@ const home = () => matchMedia("(max-width:600px)").matches
 // ---------------------------------------------------------------- picking
 const ray = new THREE.Raycaster(); 
 let down = null;
-canvas.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; $("hint").hidden = true; });
+canvas.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; if (matchMedia("(max-width:600px)").matches) setDrawer(false); });
 canvas.addEventListener("pointerup", e => {
   if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
   const r = canvas.getBoundingClientRect();
@@ -549,6 +589,7 @@ canvas.addEventListener("pointerup", e => {
 // ---------------------------------------------------------------- panel
 function select(s){
   if (tlTimer){ clearInterval(tlTimer); tlTimer = null; }
+  if (s && document.querySelector(".layout").classList.contains("nopanel")) $("btnPanel").click();
   if (state.sel?.b?.label) state.sel.b.label.el.classList.remove("sel");
   state.sel = s; if (s?.b?.label) s.b.label.el.classList.add("sel");
   colorBuildings(); render();
@@ -853,6 +894,17 @@ $("vTop").onclick = () => fly(new THREE.Vector3(0, 0, 0), 520, [0.0001, -0.0001,
 $("vLodge").onclick = () => { const vc = T.buildings.find(b => b.name === "Shaver's Creek Visitor Center"); if (vc){ select({b:vc}); focusB(vc); } };
 $("vLake").onclick = () => fly(new THREE.Vector3(-170, -330, h(-170, -330)), 520, [0.3, 0.8, 0.55]);
 
+// ---------------------------------------------------------------- overlay controls (collapsible)
+const narrow = () => matchMedia("(max-width:600px)").matches;
+function setDrawer(open){ $("drawer").hidden = !open; $("btnLayers").setAttribute("aria-expanded", open); if (open && narrow()) setLegend(false); }
+function setLegend(open){ $("btnLegend").setAttribute("aria-expanded", open); legend(); if (open && narrow()) setDrawer(false); }
+$("btnLayers").onclick = () => setDrawer($("drawer").hidden);
+$("btnLegend").onclick = () => setLegend($("btnLegend").getAttribute("aria-expanded") !== "true");
+$("btnPanel").onclick = () => { const hide = document.querySelector(".layout").classList.toggle("nopanel");
+  $("btnPanel").setAttribute("aria-expanded", !hide); $("btnPanel").textContent = hide ? "⟨ Show details" : "Hide details ⟩"; resize(); };
+$("imgnote").onclick = () => $("imgnote").setAttribute("aria-expanded", $("imgnote").getAttribute("aria-expanded") !== "true");
+document.addEventListener("keydown", e => { if (e.key === "Escape"){ setDrawer(false); $("imgnote").setAttribute("aria-expanded", false); } });
+if (narrow()) $("btnLegend").setAttribute("aria-expanded", false);
 function report(what, e){
   console.error(what, e); statusEl.hidden = false;
   const pre = document.createElement("pre"); pre.textContent = `Could not load ${what}\n${e && e.stack || e}`; statusEl.replaceChildren(pre);
