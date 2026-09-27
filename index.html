@@ -254,23 +254,40 @@ function imageryNote(){
   const el = $("imgnote"); if (!el) return;
   el.style.bottom = (document.querySelector(".bar.bottom").offsetHeight + 16) + "px";
   el.textContent = texNearmap && $("iMode").value === "nearmap"
-    ? `Detail imagery (400 m around the Visitor Center): Nearmap vertical survey, ${NM.captureDate}, ${Math.round(NM.nativePixel * 100)} cm native, shown at ${Math.round(NM.outPixel * 100)} cm. © Nearmap. Licensed imagery, not for redistribution. Outside that area: USDA NAIP 2022.`
+    ? `Imagery © Nearmap ${NM.captureDate}: ${Math.round(NM.outPixel * 100)} cm near the Visitor Center${texNearmapCtx ? `, ${Math.round(NM.layers.nearmap_ctx.outPixel * 100)} cm elsewhere, with NAIP 2022 filling the gaps` : ", NAIP 2022 beyond"}. Licensed, not for redistribution.`
     : "Imagery: USDA NAIP, May 2022, 0.6 m.";
 }
 // ---------------------------------------------------------------- builders
-let terrainMat = null, texNaip = null, texNearmap = null, NM = null;
+let terrainMat = null, texNaip = null, texNearmap = null, texNaipCtx = null, texNearmapCtx = null, NM = null, NMO = null;
+const oblUrls = new Map();
+async function oblUrl(f){ if (!oblUrls.has(f)) oblUrls.set(f, URL.createObjectURL(new Blob([await getBuf(f)], {type:"image/jpeg"}))); return oblUrls.get(f); }
+function obliqueBlock(){
+  if (!NMO) return "";
+  return `<section><h3>Oblique views <span class="tag">Nearmap ${esc(NMO.survey.slice(0,10))}</span></h3>
+    <div class="seg" id="oblSeg" role="group" aria-label="Oblique view" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${NMO.views.map((v, i) => `<button type="button" class="chip" style="background:var(--accent-soft);color:var(--accent);border-color:var(--line)" data-o="${i}" aria-pressed="${i === 0}">${esc(v.label)}</button>`).join("")}</div>
+    <img id="oblImg" alt="" style="width:100%;border-radius:8px;background:var(--grid)">
+    <p class="note">© Nearmap. Licensed imagery, not for redistribution. Angled (about 45°) photos show the walls, which the airborne lidar and vertical imagery can't.</p></section>`;
+}
+async function wireOblique(){
+  if (!NMO || !$("oblImg")) return;
+  const show = async i => { $("oblImg").src = await oblUrl(NMO.views[i].file); $("oblImg").alt = NMO.views[i].label;
+    panel.querySelectorAll("[data-o]").forEach(b => b.setAttribute("aria-pressed", +b.dataset.o === i)); };
+  panel.querySelectorAll("[data-o]").forEach(b => b.onclick = () => show(+b.dataset.o)); show(0);
+}
 async function buildTerrain(){
   const [ctx, hi] = await Promise.all([getTex("naip_ctx.jpg"), getTex("naip_hi.jpg")]);
-  texNaip = hi;
+  texNaip = hi; texNaipCtx = ctx;
   // Licensed Nearmap detail imagery, present only in builds made with it (see pipeline/fetch_nearmap.py)
   try { NM = await getJSON("nearmap_meta.json"); texNearmap = await getTex("nearmap_hi.jpg"); } catch(e){ NM = null; texNearmap = null; }
+  if (NM?.layers?.nearmap_ctx) { try { texNearmapCtx = await getTex("nearmap_ctx.jpg"); } catch(e){ texNearmapCtx = null; } }
+  try { NMO = await getJSON("nearmap_obliques.json"); if (!NMO.views?.length) NMO = null; } catch(e){ NMO = null; }
   const W = PX * (N - 1);
   const g = new THREE.PlaneGeometry(W, W, N - 1, N - 1);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) p.setZ(i, dem[i] - Z0); // PlaneGeometry rows run top (north) to bottom, like the DEM
   g.computeVertexNormals();
   const mat = new THREE.ShaderMaterial({
-    uniforms:{ctx:{value:ctx}, hi:{value:texNearmap || hi}, CTX:{value:F.ctx}, HI:{value:F.hi}, L:{value:new THREE.Vector3(-0.35,-0.45,0.82).normalize()}},
+    uniforms:{ctx:{value:texNearmapCtx || ctx}, hi:{value:texNearmap || hi}, CTX:{value:F.ctx}, HI:{value:F.hi}, L:{value:new THREE.Vector3(-0.35,-0.45,0.82).normalize()}},
     vertexShader:`varying vec2 vxy; varying vec3 vn; void main(){ vxy = position.xy; vn = normal; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
     fragmentShader:`uniform sampler2D ctx; uniform sampler2D hi; uniform float CTX; uniform float HI; uniform vec3 L; varying vec2 vxy; varying vec3 vn;
       void main(){ vec3 c = (abs(vxy.x) < HI && abs(vxy.y) < HI) ? texture2D(hi, vec2((vxy.x + HI) / (2.0*HI), (HI - vxy.y) / (2.0*HI))).rgb : texture2D(ctx, vec2((vxy.x + CTX) / (2.0*CTX), (CTX - vxy.y) / (2.0*CTX))).rgb;
@@ -280,7 +297,8 @@ async function buildTerrain(){
   });
   terrainMat = mat;
   const mesh = new THREE.Mesh(g, mat); mesh.userData.kind = "terrain"; layers.terrain.add(mesh);
-  if (texNearmap){ $("imgChip").hidden = false; $("iMode").onchange = e => { terrainMat.uniforms.hi.value = e.target.value === "nearmap" ? texNearmap : texNaip; imageryNote(); }; }
+  if (texNearmap){ $("imgChip").hidden = false; $("iMode").onchange = e => { const nm = e.target.value === "nearmap";
+    terrainMat.uniforms.hi.value = nm ? texNearmap : texNaip; terrainMat.uniforms.ctx.value = nm && texNearmapCtx ? texNearmapCtx : texNaipCtx; imageryNote(); }; }
   imageryNote();
 }
 
@@ -550,6 +568,7 @@ function renderBuilding(b, back){
       <div><span class="k">Lidar returns inside</span><span class="v">${b.buildingPts.toLocaleString()}</span><span class="s">single-return roof points, 2019</span></div>
     </div>
     ${main ? `<p class="note">The design firms give 8,800 sf (Barton Associates, phase 1) and 12,400 sf (Reuther + Bowen, addition plus renovation). The footprint above is the OSM outline of the whole building. It is not floor area.</p>` : ""}
+    ${main ? obliqueBlock() : ""}
     ${b.changeStats ? `<section><h3>Roof, 2006–08 vs 2019 lidar</h3>${changeBlock(b)}</section>` : ""}
     ${main ? `<section><h3>Spaces inside <span class="tag warn">locations not mapped</span></h3><ul class="plain">${SITE.spaces.map(s => `<li>${esc(s)}</li>`).join("")}</ul>
       <p class="note">No public floor plans exist. Rooms are listed from Shaver's Creek and the design firms' pages but not drawn. Plans from Penn State OPP or Kimmel Bogrette would let each room become clickable, as in the Palmer twin.</p></section>
@@ -563,7 +582,7 @@ function renderBuilding(b, back){
       <tr><td>outline fit</td><td>${b.shift && (b.shift[0] || b.shift[1]) ? `OSM outline shifted ${b.shift[0]} m E, ${b.shift[1]} m N to match the lidar roof (overlap ${b.iou[0]} → ${b.iou[1]})` : `OSM outline used as drawn (overlap with lidar roof ${b.iou ? b.iou[0] : "–"})`}</td></tr>
       <tr><td>canopy over roof</td><td>${Math.round(b.multiFrac * 100)}% of returns are multi-echo</td></tr>
       <tr><td>location</td><td>${ll(b.poly[0][0], b.poly[0][1])}</td></tr></table></details>`;
-  wireBack();
+  wireBack(); if (main) wireOblique();
 }
 function renderTree(i, back){
   const [x, y, gz, ht, cr] = T.trees[i]; const [lo, la] = lonlat(x, y);
@@ -763,7 +782,7 @@ async function boot(){
     layers.trees.visible = false; layers.points.visible = false; layers.sightings.visible = false;
     statusEl.hidden = true; home(); render(); legend();
     $("meta").textContent = `Lidar 2019 (USGS 3DEP) · ${T.trees.length.toLocaleString()} trees detected · ${T.buildings.length} buildings · built ${T.generated}`;
-    $("about").innerHTML = `<p>This model is assembled only from public data. Terrain is the USGS 3DEP bare-earth elevation model. Imagery is USDA NAIP from May 2022 (0.6 m), served by USGS. The point cloud, roof shapes, building heights and tree crowns come from the 2019 USGS lidar survey (PA Northcentral, QL2). Building outlines, trails and named places come from OpenStreetMap (© OpenStreetMap contributors, ODbL). The roof-change view compares the 2019 survey with the 2006–08 PAMAP statewide survey on a 2 m grid.</p>
+    $("about").innerHTML = `<p>This model is assembled only from public data. Terrain is the USGS 3DEP bare-earth elevation model. Imagery is USDA NAIP from May 2022 (0.6 m), served by USGS. Builds made with the licensed Nearmap layer use the Nearmap 2025-07-06 survey as the base instead, with NAIP only in its gaps. The point cloud, roof shapes, building heights and tree crowns come from the 2019 USGS lidar survey (PA Northcentral, QL2). Building outlines, trails and named places come from OpenStreetMap (© OpenStreetMap contributors, ODbL). The roof-change view compares the 2019 survey with the 2006–08 PAMAP statewide survey on a 2 m grid.</p>
       <p>Heights are measured, not modelled. Walls are drawn straight down from the lidar roof edge to the lowest ground corner. Inside the Visitor Center, rooms are listed but not drawn, because no floor plans are public. Live weather comes from Open-Meteo (a model) and the NWS KUNV station. Live sightings come from iNaturalist. Obscured observations are never placed on the map. Photo-station images are contributed by visitors through Chronolog and load directly from Chronolog's servers. The list of photos is a snapshot taken when this page was built.</p>
       <p>This view is for exploring, not for taking measurements. Contact the Penn State Heritage 3D Lab for the processed datasets.</p>`;
   } catch(e){ report("the model", e); return; }
