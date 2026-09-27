@@ -71,7 +71,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .camrow:hover{border-color:var(--accent)}
 .camrow img{width:96px;height:48px;object-fit:cover;border-radius:4px;background:var(--grid)}
 @media (max-width:600px){.legend{top:auto;bottom:96px;left:10px;right:auto;max-width:70%;font-size:11px}.hint{display:none}}
-.hint{position:absolute;right:12px;bottom:52px;color:rgba(230,235,230,.6);font-size:12px;pointer-events:none}
+.hint{position:absolute;right:12px;top:auto;bottom:auto;display:none;color:rgba(230,235,230,.6);font-size:12px;pointer-events:none}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:14px;align-content:start;min-width:0;max-height:min(78vh,780px);overflow:auto}
 @media (max-width:960px){.panel{max-height:none}}
 .panel h2{font:700 19px/1.2 var(--serif);margin:0}
@@ -124,6 +124,7 @@ details summary{cursor:pointer;color:var(--ink-2);font-weight:600;font-size:13px
     <section class="stage" aria-label="3D site model">
       <canvas id="c" aria-label="Interactive 3D model of the Shaver's Creek Visitor Center and its surroundings"></canvas>
       <div class="labels" id="labels"></div>
+      <div id="imgnote" style="position:absolute;left:10px;max-width:min(560px,70%);color:rgba(230,235,230,.78);font-size:11px;line-height:1.35;pointer-events:none;text-shadow:0 1px 2px #000"></div>
       <div class="status" id="status">Loading…</div>
       <div class="bar topbar" role="toolbar" aria-label="Layers">
         <button class="chip" data-layer="terrain" aria-pressed="true">Terrain + imagery</button>
@@ -142,6 +143,7 @@ details summary{cursor:pointer;color:var(--ink-2);font-weight:600;font-size:13px
         <button class="chip" id="vTop">Top</button>
         <button class="chip" id="vLodge">Visitor Center</button>
         <button class="chip" id="vLake">Lake Perez</button>
+        <label class="chip" id="imgChip" hidden>Imagery <select id="iMode"><option value="nearmap">Nearmap 2025</option><option value="naip">NAIP 2022</option></select></label>
         <label class="chip">Buildings <select id="bMode"><option value="type">by use</option><option value="change">2006–08 → 2019 change</option></select></label>
         <label class="chip">Points <select id="pMode"><option value="photo">photo color</option><option value="class">lidar class</option><option value="height">height</option></select></label>
         <label class="chip">Size <input id="pSize" type="range" min="0.5" max="4" step="0.1" value="1.6"></label>
@@ -232,7 +234,7 @@ const controls = new OrbitControls(camera, canvas); controls.enableDamping = tru
 scene.add(new THREE.HemisphereLight(0xeef4ff, 0x4a5a40, 1.4));
 const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(-300, -400, 600); scene.add(sun);
 function resize(){ const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix(); }
-new ResizeObserver(resize).observe(canvas); resize();
+new ResizeObserver(() => { resize(); if (T) { legend(); imageryNote(); } }).observe(canvas); resize();
 
 let T, F, Z0, dem, N, PX;
 const layers = {stations:new THREE.Group(), terrain:new THREE.Group(), buildings:new THREE.Group(), trees:new THREE.Group(), points:new THREE.Group(), lines:new THREE.Group(), sightings:new THREE.Group()};
@@ -248,16 +250,27 @@ function h(x, y){ // bilinear terrain height, local metres -> scene z
 }
 const lonlat = (x, y) => [F.lon[0]*x + F.lon[1]*y + F.lon[2], F.lat[0]*x + F.lat[1]*y + F.lat[2]];
 
+function imageryNote(){
+  const el = $("imgnote"); if (!el) return;
+  el.style.bottom = (document.querySelector(".bar.bottom").offsetHeight + 16) + "px";
+  el.textContent = texNearmap && $("iMode").value === "nearmap"
+    ? `Detail imagery (400 m around the Visitor Center): Nearmap vertical survey, ${NM.captureDate}, ${Math.round(NM.nativePixel * 100)} cm native, shown at ${Math.round(NM.outPixel * 100)} cm. © Nearmap. Licensed imagery, not for redistribution. Outside that area: USDA NAIP 2022.`
+    : "Imagery: USDA NAIP, May 2022, 0.6 m.";
+}
 // ---------------------------------------------------------------- builders
+let terrainMat = null, texNaip = null, texNearmap = null, NM = null;
 async function buildTerrain(){
   const [ctx, hi] = await Promise.all([getTex("naip_ctx.jpg"), getTex("naip_hi.jpg")]);
+  texNaip = hi;
+  // Licensed Nearmap detail imagery, present only in builds made with it (see pipeline/fetch_nearmap.py)
+  try { NM = await getJSON("nearmap_meta.json"); texNearmap = await getTex("nearmap_hi.jpg"); } catch(e){ NM = null; texNearmap = null; }
   const W = PX * (N - 1);
   const g = new THREE.PlaneGeometry(W, W, N - 1, N - 1);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) p.setZ(i, dem[i] - Z0); // PlaneGeometry rows run top (north) to bottom, like the DEM
   g.computeVertexNormals();
   const mat = new THREE.ShaderMaterial({
-    uniforms:{ctx:{value:ctx}, hi:{value:hi}, CTX:{value:F.ctx}, HI:{value:F.hi}, L:{value:new THREE.Vector3(-0.35,-0.45,0.82).normalize()}},
+    uniforms:{ctx:{value:ctx}, hi:{value:texNearmap || hi}, CTX:{value:F.ctx}, HI:{value:F.hi}, L:{value:new THREE.Vector3(-0.35,-0.45,0.82).normalize()}},
     vertexShader:`varying vec2 vxy; varying vec3 vn; void main(){ vxy = position.xy; vn = normal; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
     fragmentShader:`uniform sampler2D ctx; uniform sampler2D hi; uniform float CTX; uniform float HI; uniform vec3 L; varying vec2 vxy; varying vec3 vn;
       void main(){ vec3 c = (abs(vxy.x) < HI && abs(vxy.y) < HI) ? texture2D(hi, vec2((vxy.x + HI) / (2.0*HI), (HI - vxy.y) / (2.0*HI))).rgb : texture2D(ctx, vec2((vxy.x + CTX) / (2.0*CTX), (CTX - vxy.y) / (2.0*CTX))).rgb;
@@ -265,7 +278,10 @@ async function buildTerrain(){
 #include <colorspace_fragment>
 }`,
   });
+  terrainMat = mat;
   const mesh = new THREE.Mesh(g, mat); mesh.userData.kind = "terrain"; layers.terrain.add(mesh);
+  if (texNearmap){ $("imgChip").hidden = false; $("iMode").onchange = e => { terrainMat.uniforms.hi.value = e.target.value === "nearmap" ? texNearmap : texNaip; imageryNote(); }; }
+  imageryNote();
 }
 
 const bMeshes = [];
@@ -448,7 +464,9 @@ function fly(target, dist, dir){
   const d = new THREE.Vector3(...dir).normalize();
   controls.target.copy(target); camera.position.copy(target).addScaledVector(d, dist); controls.update();
 }
-const home = () => fly(new THREE.Vector3(-8, -18, 0), 170, [0.35, -0.8, 0.5]);
+const home = () => matchMedia("(max-width:600px)").matches
+  ? fly(new THREE.Vector3(-60, 20, 0), 330, [0.3, -0.8, 0.75])
+  : fly(new THREE.Vector3(-55, 40, 0), 265, [0.3, -0.8, 0.55]);
 
 // ---------------------------------------------------------------- picking
 const ray = new THREE.Raycaster(); 
@@ -581,7 +599,9 @@ function renderGround(p, back){
 // ---------------------------------------------------------------- Chronolog photo stations (snapshot from pipeline/fetch_chronolog.py)
 let CH = null;
 const photoUrl = (id, size = "1200_2") => `${CH.photoBase}${size}/${encodeURIComponent(id)}.jpeg`;
-const pdate = t => new Date(t.endsWith("Z") ? t : t + "").toLocaleDateString([], {month:"short", day:"numeric", year:"numeric"});
+// Chronolog observedAt values without "Z" are local wall-clock times, and parse as local time, as intended
+const pdate = t => new Date(t).toLocaleDateString([], {month:"short", day:"numeric", year:"numeric"});
+const pdateUTC = t => new Date(t).toLocaleDateString([], {month:"short", day:"numeric", year:"numeric", timeZone:"America/New_York"});
 function buildStations(){
   for (const st of CH.stations){
     if (st.x == null || Math.abs(st.x) > F.ctx || Math.abs(st.y) > F.ctx) continue;
@@ -606,13 +626,13 @@ function renderStation(st, back){
       <div class="tl-photo"><img id="tlImg" alt="Visitor photo from ${esc(short)}" src="${esc(photoUrl(P[n-1].id))}"><span class="d" id="tlDate">${esc(pdate(P[n-1].t))}</span></div>
       <div class="tl-ctl" style="margin-top:8px"><button id="tlPlay" type="button">Play</button><input id="tlSlider" type="range" min="0" max="${n-1}" value="${n-1}" aria-label="Photo"></div>
       <div class="strip" style="margin-top:8px">${P.map((p, i) => `<button type="button" data-i="${i}" aria-label="${esc(pdate(p.t))}" ${i === n-1 ? 'aria-current="true"' : ""}><img loading="lazy" alt="" src="${esc(photoUrl(p.id, "300_2"))}"></button>`).join("")}</div>
-      <p class="note">${st.contributors} contributors · ${esc(pdate(P[0].t))} – ${esc(pdate(P[n-1].t))}. Photos by visitors via <a href="https://www.chronolog.io" target="_blank" rel="noopener">Chronolog</a>. This list is a snapshot from ${esc(pdate(CH.fetched))}. <a href="${esc(safeUrl(st.url))}" target="_blank" rel="noopener">The live timelapse</a> has any newer photos.</p></section>`
+      <p class="note">${esc(st.contributors)} contributors · ${esc(pdate(P[0].t))} – ${esc(pdate(P[n-1].t))}. Photos by visitors via <a href="https://www.chronolog.io" target="_blank" rel="noopener">Chronolog</a>. This list is a snapshot from ${esc(pdateUTC(CH.fetched))}. <a href="${esc(safeUrl(st.url))}" target="_blank" rel="noopener">The live timelapse</a> has any newer photos.</p></section>`
       : `<p class="note">No photos have been added yet.</p>`}
     ${onsite ? `<div class="facts"><div><span class="k">Location</span><span class="v" style="font-size:12px">${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}</span><span class="s">${fmt(Math.hypot(st.x, st.y),0)} m from the Visitor Center</span></div>
       <div><span class="k">Ground elevation</span><span class="v">${fmt((h(st.x, st.y) + Z0) * M2FT, 0)} ft</span><span class="s">3DEP bare earth</span></div></div>`
       : `<p class="note">This station is off site, and Chronolog doesn't publish its location yet, so it isn't on the map.</p>`}
     <section><h3>Add a photo</h3><ol class="plain" style="padding-left:18px;margin:0"><li>Place your phone horizontally in the bracket on the post.</li><li>Take a photo.</li><li>Upload it with the QR code on the sign, or email it to <b>upload@chronolog.io</b> with the subject <b>${esc(st.sign)}</b>.</li></ol></section>
-    ${st.code === "SHV101" ? `<p class="note">The 2026 parking-lot renovation this station records happened after the 2019 lidar and the 2022 imagery used here, so the new lot and rain garden don't appear in the 3D model.</p>` : ""}`;
+    ${st.code === "SHV101" ? `<p class="note">The 2026 parking-lot renovation this station records happened after the 2019 lidar and the 2022 imagery used here, so the new lot doesn't appear in the 3D model.</p>` : ""}`;
   wireBack();
   if (!n) return;
   const img = $("tlImg"), dt = $("tlDate"), sl = $("tlSlider"), strip = panel.querySelectorAll(".strip button");
@@ -663,7 +683,7 @@ async function loadWeather(){
     try {
       const p = (await getJ("https://api.weather.gov/stations/KUNV/observations/latest", {headers:{Accept:"application/geo+json"}})).properties;
       const f = p.temperature?.value == null ? "–" : fmt(p.temperature.value * 9/5 + 32, 0);
-      parts[1] = `<p class="note">Nearest station, KUNV (University Park Airport, about 21 km NNE): ${f}°F, ${esc(p.textDescription || "")}, observed ${esc(new Date(p.timestamp).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}))}.</p>`;
+      parts[1] = `<p class="note">Nearest station, KUNV (University Park Airport, about 21 km NNE): ${f}°F${p.textDescription ? ", " + esc(p.textDescription) : ""}, observed ${esc(new Date(p.timestamp).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}))}.</p>`;
     } catch(e){ parts[1] = `<p class="note">KUNV station unavailable (${esc(e.message)}).</p>`; }
     paint();
   })();
