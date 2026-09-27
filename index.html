@@ -133,6 +133,8 @@ details summary{cursor:pointer;color:var(--ink-2);font-weight:600;font-size:13px
         <button class="chip" data-layer="points" aria-pressed="false">Lidar points</button>
         <button class="chip" data-layer="lines" aria-pressed="true">Trails + water</button>
         <button class="chip" data-layer="labels" aria-pressed="true">Labels</button>
+        <button class="chip" data-layer="stems" aria-pressed="false" hidden>Surveyed stems</button>
+        <button class="chip" data-layer="obsTrees" aria-pressed="false" hidden>Tree records</button>
         <button class="chip" data-layer="stations" aria-pressed="true">Photo stations</button>
         <button class="chip" data-layer="sightings" aria-pressed="false">Live sightings</button>
       </div>
@@ -145,6 +147,7 @@ details summary{cursor:pointer;color:var(--ink-2);font-weight:600;font-size:13px
         <button class="chip" id="vLake">Lake Perez</button>
         <label class="chip" id="imgChip" hidden>Imagery <select id="iMode"><option value="nearmap">Nearmap 2025</option><option value="naip">NAIP 2022</option></select></label>
         <label class="chip">Buildings <select id="bMode"><option value="type">by use</option><option value="change">2006–08 → 2019 change</option></select></label>
+        <label class="chip" id="tChip" hidden>Trees <select id="tMode"><option value="height">by height</option><option value="leaf">conifer score (experimental)</option><option value="stand">stand type</option><option value="survey">nearest surveyed stem</option></select></label>
         <label class="chip">Points <select id="pMode"><option value="photo">photo color</option><option value="class">lidar class</option><option value="height">height</option></select></label>
         <label class="chip">Size <input id="pSize" type="range" min="0.5" max="4" step="0.1" value="1.6"></label>
       </div>
@@ -237,9 +240,9 @@ function resize(){ const w = canvas.clientWidth, h = canvas.clientHeight; render
 new ResizeObserver(() => { resize(); if (T) { legend(); imageryNote(); } }).observe(canvas); resize();
 
 let T, F, Z0, dem, N, PX;
-const layers = {stations:new THREE.Group(), terrain:new THREE.Group(), buildings:new THREE.Group(), trees:new THREE.Group(), points:new THREE.Group(), lines:new THREE.Group(), sightings:new THREE.Group()};
+const layers = {stems:new THREE.Group(), obsTrees:new THREE.Group(), stations:new THREE.Group(), terrain:new THREE.Group(), buildings:new THREE.Group(), trees:new THREE.Group(), points:new THREE.Group(), lines:new THREE.Group(), sightings:new THREE.Group()};
 Object.values(layers).forEach(g => scene.add(g));
-const state = {labels:true, bMode:"type", pMode:"photo", sel:null};
+const state = {labels:true, bMode:"type", pMode:"photo", tMode:"height", sel:null};
 
 function h(x, y){ // bilinear terrain height, local metres -> scene z
   const c = (x + F.ctx) / PX - 0.5, r = (F.ctx - y) / PX - 0.5;
@@ -257,6 +260,40 @@ function imageryNote(){
     ? `Imagery © Nearmap ${NM.captureDate}: ${Math.round(NM.outPixel * 100)} cm near the Visitor Center${texNearmapCtx ? `, ${Math.round(NM.layers.nearmap_ctx.outPixel * 100)} cm elsewhere, with NAIP 2022 filling the gaps` : ", NAIP 2022 beyond"}. Licensed, not for redistribution.`
     : "Imagery: USDA NAIP, May 2022, 0.6 m.";
 }
+// ---------------------------------------------------------------- forest inventory (pipeline/forest.py)
+let FO = null;
+const GROUP = [["Quercus","Oaks",0xb5651d],["Carya","Hickories",0xd2b48c],["Acer","Maples",0xd9463b],["Tsuga","Hemlock",0x1f6f6a],["Pinus","Pines",0x3f8f4f],["","Other broadleaf",0x9a86c4]];
+const grpOf = code => { const sci = FO?.codes[code]?.sci || ""; return GROUP.findIndex(g => g[0] && sci.startsWith(g[0])) >= 0 ? GROUP.findIndex(g => g[0] && sci.startsWith(g[0])) : GROUP.length - 1; };
+const STAND_COL = [0x8dd3c7,0xffffb3,0xbebada,0xfb8072,0x80b1d3,0xfdb462,0xb3de69,0xfccde5,0xd9d9d9,0xbc80bd,0xccebc5,0xffed6f,0x5ab4ac];
+const spName = code => FO?.codes[code] ? `${FO.codes[code].common} (${FO.codes[code].sci})` : code;
+function colorTrees(){
+  if (!treeMesh) return;
+  const c = new THREE.Color(), hmax = Math.max(...T.trees.map(t => t[3]));
+  T.trees.forEach((t, i) => {
+    const f = FO?.crowns[i];
+    if (state.tMode === "leaf" && f){ if (f[5]) c.setHex(0x777777); else { const p = f[1] / 100; c.setRGB(0.62 - 0.5 * p, 0.8 - 0.36 * p, 0.29 + 0.07 * p); } }
+    else if (state.tMode === "stand" && f){ f[2] >= 0 ? c.setHex(STAND_COL[f[2] % STAND_COL.length]) : c.setHex(0x777777); }
+    else if (state.tMode === "survey" && f){ f[0] >= 0 ? c.setHex(GROUP[grpOf(FO.stems[f[0]][2])][2]) : c.setHex(0x5a5f5b); }
+    else { const k = Math.min(1, (t[3] - 5) / (hmax - 5)); c.setHSL(0.28 - 0.06 * k, 0.45, 0.62 - 0.36 * k); }
+    treeMesh.setColorAt(i, c);
+  });
+  treeMesh.instanceColor.needsUpdate = true; legend();
+}
+let stemMesh = null;
+function buildForest(){
+  const g = new THREE.CylinderGeometry(0.35, 0.35, 1, 6); g.rotateX(Math.PI / 2); g.translate(0, 0, 0.5);
+  stemMesh = new THREE.InstancedMesh(g, new THREE.MeshLambertMaterial(), FO.stems.length);
+  const m = new THREE.Matrix4(), c = new THREE.Color();
+  FO.stems.forEach(([x, y, code, dbh], i) => { const hgt = 2 + dbh / 12; m.makeScale(Math.max(0.6, dbh / 40), Math.max(0.6, dbh / 40), hgt); m.setPosition(x, y, h(x, y)); stemMesh.setMatrixAt(i, m); stemMesh.setColorAt(i, c.setHex(GROUP[grpOf(code)][2])); });
+  stemMesh.userData.kind = "stem"; layers.stems.add(stemMesh);
+  const og = new THREE.OctahedronGeometry(0.9); const om = new THREE.InstancedMesh(og, new THREE.MeshLambertMaterial({color:0xe2a93a}), FO.obs.length);
+  FO.obs.forEach((o, i) => { m.makeTranslation(o.x, o.y, h(o.x, o.y) + 3); om.setMatrixAt(i, m); });
+  om.userData.kind = "obsTree"; obsTreeMesh = om; layers.obsTrees.add(om);
+  layers.stems.visible = false; layers.obsTrees.visible = false;
+  document.querySelector('[data-layer="stems"]').hidden = false; document.querySelector('[data-layer="obsTrees"]').hidden = false; $("tChip").hidden = false;
+  $("tMode").onchange = e => { state.tMode = e.target.value; if (!layers.trees.visible){ layers.trees.visible = true; document.querySelector('[data-layer="trees"]').setAttribute("aria-pressed", true); } colorTrees(); };
+}
+let obsTreeMesh = null;
 // ---------------------------------------------------------------- builders
 let terrainMat = null, texNaip = null, texNearmap = null, texNaipCtx = null, texNearmapCtx = null, NM = null, NMO = null;
 const oblUrls = new Map();
@@ -471,7 +508,11 @@ function legend(){
     if (state.bMode === "type") rows.push("<b>Buildings by use</b>", ...[["main","Visitor Center"],["class","Classrooms"],["aviary","Aviary mews"],["service","Service / support"],["other","Other (unnamed in OSM)"]].map(([k,t]) => `<span><i style="background:#${ROLE_COL[k].toString(16).padStart(6,"0")}"></i>${t}</span>`));
     else rows.push("<b>Roof vs. 2006–08 lidar</b>", `<span><i style="background:var(--c-lodge)"></i>Same height in 2006–08</span>`, `<span><i style="background:var(--c-new)"></i>Ground or trees in 2006–08 (new)</span>`, `<span><i style="background:var(--c-amb)"></i>Changed height or mixed</span>`, `<span><i style="background:var(--c-none)"></i>No comparison</span>`);
   }
-  if (layers.trees.visible) rows.push(`<b>Trees (lidar crowns ≥ 5 m)</b><div class="ramp" style="background:linear-gradient(90deg,hsl(101,45%,62%),hsl(79,45%,26%))"></div><span>5 m → ${fmt(Math.max(...T.trees.map(t=>t[3])),0)} m tall</span>`);
+  if (layers.trees.visible && FO && state.tMode === "leaf") rows.push(`<b>Conifer score (experimental)</b><div class="ramp" style="background:linear-gradient(90deg,rgb(158,204,74),rgb(31,112,92))"></div><span>broadleaf → conifer</span><span><i style="background:#777"></i>outside training range</span><span style="opacity:.75">finds ${Math.round(FO.classifier.cvConiferRecall*100)}% of conifers in CV${FO.classifier.holdN ? `, only ${Math.round(FO.classifier.holdConiferRecall*100)}% on unseen stems` : ""}</span>`);
+  else if (layers.trees.visible && FO && state.tMode === "stand") rows.push("<b>Stone Valley stand type</b>", ...(FO.landTypesPresent || FO.landTypes.map((_, i) => i)).map(i => `<span><i style="background:#${STAND_COL[i % STAND_COL.length].toString(16).padStart(6,"0")}"></i>${esc(FO.landTypes[i])}</span>`), `<span style="opacity:.75">Penn State land-cover map</span>`);
+  else if (layers.trees.visible && FO && state.tMode === "survey") rows.push("<b>Largest surveyed stem in reach</b>", ...GROUP.map(g => `<span><i style="background:#${g[2].toString(16).padStart(6,"0")}"></i>${g[1]}</span>`), `<span><i style="background:#5a5f5b"></i>No surveyed stem</span>`, `<span style="opacity:.75">local mix, not a per-tree ID · Shale Hills CZO, Kaye et al., CC BY 4.0</span>`);
+  else if (layers.trees.visible) rows.push(`<b>Trees (lidar crowns ≥ 5 m)</b><div class="ramp" style="background:linear-gradient(90deg,hsl(101,45%,62%),hsl(79,45%,26%))"></div><span>5 m → ${fmt(Math.max(...T.trees.map(t=>t[3])),0)} m tall</span>`);
+  if (layers.stems.visible && FO && !(layers.trees.visible && state.tMode === "survey")) rows.push("<b>Surveyed stems</b>", ...GROUP.map(g => `<span><i style="background:#${g[2].toString(16).padStart(6,"0")}"></i>${g[1]}</span>`), `<span style="opacity:.75">Shale Hills CZO 2016, Kaye et al., CC BY 4.0</span>`);
   if (layers.points.visible && state.pMode === "class") rows.push(`<b>Lidar class</b><span style="opacity:.7">USGS classes, plus classes derived here</span>`, ...Object.values(CLS).map(c => `<span><i style="background:rgb(${c[0]},${c[1]},${c[2]})"></i>${c[3]}</span>`));
   if (layers.points.visible && state.pMode === "height") rows.push(`<b>Height above ground</b><div class="ramp" style="background:linear-gradient(90deg,rgb(40,60,200),rgb(147,210,110),rgb(255,60,20))"></div><span>0 → 35+ m</span>`);
   el.innerHTML = rows.join(""); el.hidden = !rows.length;
@@ -494,10 +535,12 @@ canvas.addEventListener("pointerup", e => {
   if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
   const r = canvas.getBoundingClientRect();
   ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
-  const targets = [...(layers.stations.visible ? stMeshes : []), ...(layers.buildings.visible ? bMeshes : []), ...(layers.trees.visible && treeMesh ? [treeMesh] : []), ...(layers.terrain.visible ? layers.terrain.children : [])];
+  const targets = [...(layers.stems.visible && stemMesh ? [stemMesh] : []), ...(layers.obsTrees.visible && obsTreeMesh ? [obsTreeMesh] : []), ...(layers.stations.visible ? stMeshes : []), ...(layers.buildings.visible ? bMeshes : []), ...(layers.trees.visible && treeMesh ? [treeMesh] : []), ...(layers.terrain.visible ? layers.terrain.children : [])];
   const hit = ray.intersectObjects(targets, false)[0];
   if (!hit) return;
-  if (hit.object.userData.kind === "station") select({st:hit.object.userData.st});
+  if (hit.object.userData.kind === "stem") select({stem:hit.instanceId});
+  else if (hit.object.userData.kind === "obsTree") select({obsTree:hit.instanceId});
+  else if (hit.object.userData.kind === "station") select({st:hit.object.userData.st});
   else if (hit.object.userData.kind === "building") select({b:hit.object.userData.b});
   else if (hit.object.userData.kind === "tree") select({tree:hit.instanceId});
   else select({ground:hit.point});
@@ -520,6 +563,8 @@ function render(){
   if (s.tree != null) return renderTree(s.tree, back);
   if (s.f) return renderFeature(s.f, back);
   if (s.st) return renderStation(s.st, back);
+  if (s.stem != null) return renderStem(s.stem, back);
+  if (s.obsTree != null) return renderObsTree(s.obsTree, back);
   if (s.ground) return renderGround(s.ground, back);
 }
 function wireBack(){ const b = $("back"); if (b) b.onclick = () => select(null); }
@@ -587,16 +632,59 @@ function renderBuilding(b, back){
 function renderTree(i, back){
   const [x, y, gz, ht, cr] = T.trees[i]; const [lo, la] = lonlat(x, y);
   panel.innerHTML = `${back}
-    <div><h2>Tree crown #${i + 1}</h2><p class="sub">Found as a local high point in the 2019 lidar canopy height model. Lidar can't tell the species.</p></div>
+    <div><h2>Tree crown #${i + 1}</h2><p class="sub">Found as a local high point in the 2019 lidar canopy height model. Lidar alone can't tell the species.</p></div>
     <div class="facts">
       <div><span class="k">Height</span><span class="v">${fmt(ht * M2FT, 0)} ft</span><span class="s">${fmt(ht,1)} m above bare earth</span></div>
       <div><span class="k">Crown width</span><span class="v">${fmt(cr * 2 * M2FT, 0)} ft</span><span class="s">${fmt(cr * 2,1)} m, averaged over 8 directions</span></div>
       <div><span class="k">Ground elevation</span><span class="v">${fmt(gz * M2FT, 0)} ft</span><span class="s">${fmt(gz,1)} m NAVD88</span></div>
       <div><span class="k">Location</span><span class="v" style="font-size:12px">${la.toFixed(5)}, ${lo.toFixed(5)}</span><span class="s">${fmt(Math.hypot(x, y),0)} m from the Visitor Center</span></div>
     </div>
+    ${forestBlock(i, x, y)}
     <section><h3>Plants recorded within 40 m <span class="tag">iNaturalist · live</span></h3><div id="inatTree" class="sightings sub">Loading…</div></section>
     <p class="note">In dense canopy, automatic crown detection can merge neighbouring trees or split one tree into two. Heights are more reliable than crown counts. A 2019 survey won't show trees lost or planted since.</p>`;
   wireBack(); loadSightings({lat:la, lng:lo, radius:0.04, iconic_taxa:"Plantae", per_page:6}, "inatTree");
+}
+const LIC = u => { u = String(u || ""); if (/publicdomain\/zero/i.test(u) || /^CC0/i.test(u)) return "CC0";
+  const m = u.match(/licenses\/([a-z-]+)\/([\d.]+)/i); return m ? `CC ${m[1].toUpperCase()} ${m[2]}` : (u ? u : "see record"); };
+const SH_CREDIT = `Shale Hills CZO tree survey 2016 (Kaye et al., Susquehanna Shale Hills Critical Zone Observatory; <a href="https://www.hydroshare.org/resource/0b8c9950806244a186cf4c92443b7de0/" target="_blank" rel="noopener">HydroShare</a>, CC BY 4.0)`;
+function forestBlock(i, x, y){
+  if (!FO) return "";
+  const [mi, pc, lt, fh, nin, ood] = FO.crowns[i], C = FO.classifier, parts = [];
+  const inReach = FO.stems.map((st, k) => [Math.hypot(st[0] - x, st[1] - y), k]).filter(d => d[0] <= T.trees[i][4] + 1).sort((a, b) => a[0] - b[0]);
+  if (inReach.length){
+    parts.push(`<section><h3>Surveyed stems within reach <span class="tag">Shale Hills 2016</span></h3>
+      <table class="kv">${inReach.slice(0, 6).map(([d, k]) => { const [, , code, dbh, cc] = FO.stems[k];
+        return `<tr><td>${fmt(d,1)} m</td><td>${esc(FO.codes[code]?.common || code)} · ${fmt(dbh / 2.54, 0)} in DBH${cc ? " · " + esc(cc) : ""}</td></tr>`; }).join("")}</table>
+      <p class="note">${inReach.length} surveyed stem${inReach.length > 1 ? "s" : ""} stand within this crown's radius (+1 m). Survey GPS under canopy is too coarse to say which one is this crown: across the survey, big stems sit barely closer to lidar crown peaks than random points do. So read this as the local mix of trees, not an ID. Data: ${SH_CREDIT}.</p></section>`); }
+  parts.push(`<section><h3>Conifer score <span class="tag warn">experimental</span></h3><div class="split" role="img" aria-label="conifer score ${pc} of 100"><i style="width:${pc}%;background:#1f705c"></i><i style="width:${100-pc}%;background:#9ecc4a"></i></div>
+      <p class="sub">Model score <b>${pc}/100</b> toward conifer${ood ? `. <b>This crown is outside the model's training range</b>, so treat the score as unreliable` : ""}.</p>
+      <p class="note">Random forest trained on ${C.trainN} crowns that had a large dominant or codominant surveyed stem close to the peak. Inputs: lidar height, crown size and pulse penetration, plus Nearmap 2025 and NAIP near-infrared crown colour.
+      Spatial cross-validation: ${Math.round(C.cvBalanced*100)}% balanced accuracy, finding ${Math.round(C.cvConiferRecall*100)}% of conifers.${C.holdN ? ` On ${C.holdN} crowns whose stems were never used in training it found only ${Math.round(C.holdConiferRecall*100)}% of conifers.` : ""} The score is a vote share, not a calibrated probability. The model was trained on Shale Hills ridge forest, not landscaped grounds.</p></section>`);
+  const near = FO.obs.map((o, k) => [Math.hypot(o.x - x, o.y - y), k]).filter(d => d[0] <= 15).sort((a, b) => a[0] - b[0]).slice(0, 4);
+  parts.push(`<section><h3>Context</h3><table class="kv">
+    <tr><td>Stand type</td><td>${lt >= 0 ? esc(FO.landTypes[lt]) : "outside the stand map"} <span class="note">(Stone Valley Forest land-cover map, Penn State; no licence stated)</span></td></tr>
+    <tr><td>USFS model mix</td><td>${fh.length ? fh.map(k => esc(FO.fhtetSpecies[k])).join(", ") : "–"} <span class="note">(30 m model, c. 2002)</span></td></tr>
+    <tr><td>Recorded within 15 m</td><td>${near.length ? near.map(([d, k]) => { const o = FO.obs[k]; return `<a href="${esc(safeUrl(o.url))}" target="_blank" rel="noopener"><i>${esc(o.sp)}</i></a> (${fmt(d,0)} m; ${esc(o.by || "unknown observer")}, ${esc(LIC(o.lic))})`; }).join("<br>") : "none"}</td></tr></table></section>`);
+  return parts.join("");
+}
+function renderStem(j, back){
+  const [x, y, code, dbh, cc, id] = FO.stems[j], [lo, la] = lonlat(x, y);
+  panel.innerHTML = `${back}<div><h2>${esc(FO.codes[code]?.common || code)}</h2><p class="sub"><i>${esc(FO.codes[code]?.sci || "")}</i> · surveyed stem, tag ${esc(id)}</p></div>
+    <div class="facts"><div><span class="k">DBH (2016)</span><span class="v">${fmt(dbh / 2.54, 0)} in</span><span class="s">${fmt(dbh,1)} cm at 1.37 m, uphill side</span></div>
+    <div><span class="k">Crown class</span><span class="v">${esc({D:"Dominant",CD:"Codominant","CD/I":"Codominant/intermediate",I:"Intermediate",S:"Suppressed"}[cc] || "not recorded")}</span><span class="s">2016</span></div>
+    <div><span class="k">Location</span><span class="v" style="font-size:12px">${la.toFixed(5)}, ${lo.toFixed(5)}</span><span class="s">survey GPS, under canopy</span></div>
+    <div><span class="k">Ground</span><span class="v">${fmt((h(x, y) + Z0) * M2FT, 0)} ft</span><span class="s">3DEP bare earth</span></div></div>
+    <p class="note">From the ${SH_CREDIT}, remeasured 2008, 2012 and 2016. The watershed is about 0.3–0.6 km SE of the Visitor Center. Some surveyed trees fell in the 2017 blowdown.</p>`;
+  wireBack();
+}
+function renderObsTree(k, back){
+  const o = FO.obs[k];
+  panel.innerHTML = `${back}<div><h2><i>${esc(o.sp)}</i></h2><p class="sub">Observation record · ${esc(o.ds || "GBIF")}</p></div>
+    <table class="kv"><tr><td>Date</td><td>${esc(o.date)}</td></tr><tr><td>Observer</td><td>${esc(o.by || "–")}</td></tr><tr><td>Location accuracy</td><td>${o.unc != null ? esc(Math.round(o.unc)) + " m" : "not given"}</td></tr>
+    <tr><td>Licence</td><td>${esc(LIC(o.lic))}</td></tr></table>
+    <a href="${esc(safeUrl(o.url))}" target="_blank" rel="noopener">Open the record</a>
+    <p class="note">A record of the species growing near this point. It doesn't identify a particular lidar crown. Via GBIF, mostly iNaturalist research-grade.</p>`;
+  wireBack();
 }
 function renderFeature(f, back){
   const t = f.tags, [lo, la] = lonlat(f.x, f.y);
@@ -778,9 +866,11 @@ async function boot(){
     dem = new Float32Array(await getBuf("terrain.f32"));
     Z0 = dem[Math.floor(N / 2) * N + Math.floor(N / 2)];
     try { CH = await getJSON("chronolog.json"); } catch(e){ console.warn("no Chronolog snapshot", e); }
-    await buildTerrain(); buildBuildings(); buildTrees(); buildLines(); buildLabels(); if (CH) buildStations();
+    try { FO = await getJSON("forest.json"); } catch(e){ console.warn("no forest inventory", e); }
+    await buildTerrain(); buildBuildings(); buildTrees(); buildLines(); buildLabels(); if (CH) buildStations(); if (FO){ buildForest(); colorTrees(); }
     layers.trees.visible = false; layers.points.visible = false; layers.sightings.visible = false;
     statusEl.hidden = true; home(); render(); legend();
+    if (!KEY) window.__twin = {select, FO: () => FO};   // dev build only (no gate): test hook
     $("meta").textContent = `Lidar 2019 (USGS 3DEP) · ${T.trees.length.toLocaleString()} trees detected · ${T.buildings.length} buildings · built ${T.generated}`;
     $("about").innerHTML = `<p>This model is assembled only from public data. Terrain is the USGS 3DEP bare-earth elevation model. Imagery is USDA NAIP from May 2022 (0.6 m), served by USGS. Builds made with the licensed Nearmap layer use the Nearmap 2025-07-06 survey as the base instead, with NAIP only in its gaps. The point cloud, roof shapes, building heights and tree crowns come from the 2019 USGS lidar survey (PA Northcentral, QL2). Building outlines, trails and named places come from OpenStreetMap (© OpenStreetMap contributors, ODbL). The roof-change view compares the 2019 survey with the 2006–08 PAMAP statewide survey on a 2 m grid.</p>
       <p>Heights are measured, not modelled. Walls are drawn straight down from the lidar roof edge to the lowest ground corner. Inside the Visitor Center, rooms are listed but not drawn, because no floor plans are public. Live weather comes from Open-Meteo (a model) and the NWS KUNV station. Live sightings come from iNaturalist. Obscured observations are never placed on the map. Photo-station images are contributed by visitors through Chronolog and load directly from Chronolog's servers. The list of photos is a snapshot taken when this page was built.</p>
