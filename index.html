@@ -55,6 +55,21 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .lbl:hover,.lbl.sel{border-color:#86c79a}
 .lbl.bld{background:rgba(47,107,63,.88)}
 .lbl.obs{background:rgba(168,106,0,.9)}
+.lbl.cam{background:#f2c200;color:#1b1b1b}
+.tl-photo{position:relative;border-radius:8px;overflow:hidden;background:var(--grid);aspect-ratio:2/1}
+.tl-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.tl-photo .d{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.65);color:#fff;font:500 12px var(--mono);padding:2px 7px;border-radius:4px}
+.tl-ctl{display:flex;gap:8px;align-items:center}
+.tl-ctl input{flex:1;accent-color:var(--accent)}
+.tl-ctl button{background:var(--accent);color:var(--surface);border:0;border-radius:6px;padding:4px 10px;font-weight:600;cursor:pointer}
+.strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:4px}
+.strip button{padding:0;border:2px solid transparent;border-radius:4px;overflow:hidden;background:none;cursor:pointer;aspect-ratio:2/1}
+.strip button[aria-current="true"]{border-color:var(--accent)}
+.strip img{width:100%;height:100%;object-fit:cover;display:block}
+.cams{display:grid;gap:8px}
+.camrow{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;background:none;border:1px solid var(--line);border-radius:8px;padding:6px;text-align:left;cursor:pointer}
+.camrow:hover{border-color:var(--accent)}
+.camrow img{width:96px;height:48px;object-fit:cover;border-radius:4px;background:var(--grid)}
 @media (max-width:600px){.legend{top:auto;bottom:96px;left:10px;right:auto;max-width:70%;font-size:11px}.hint{display:none}}
 .hint{position:absolute;right:12px;bottom:52px;color:rgba(230,235,230,.6);font-size:12px;pointer-events:none}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:14px;align-content:start;min-width:0;max-height:min(78vh,780px);overflow:auto}
@@ -117,6 +132,7 @@ details summary{cursor:pointer;color:var(--ink-2);font-weight:600;font-size:13px
         <button class="chip" data-layer="points" aria-pressed="false">Lidar points</button>
         <button class="chip" data-layer="lines" aria-pressed="true">Trails + water</button>
         <button class="chip" data-layer="labels" aria-pressed="true">Labels</button>
+        <button class="chip" data-layer="stations" aria-pressed="true">Photo stations</button>
         <button class="chip" data-layer="sightings" aria-pressed="false">Live sightings</button>
       </div>
       <div class="legend" id="legend"></div>
@@ -219,7 +235,7 @@ function resize(){ const w = canvas.clientWidth, h = canvas.clientHeight; render
 new ResizeObserver(resize).observe(canvas); resize();
 
 let T, F, Z0, dem, N, PX;
-const layers = {terrain:new THREE.Group(), buildings:new THREE.Group(), trees:new THREE.Group(), points:new THREE.Group(), lines:new THREE.Group(), sightings:new THREE.Group()};
+const layers = {stations:new THREE.Group(), terrain:new THREE.Group(), buildings:new THREE.Group(), trees:new THREE.Group(), points:new THREE.Group(), lines:new THREE.Group(), sightings:new THREE.Group()};
 Object.values(layers).forEach(g => scene.add(g));
 const state = {labels:true, bMode:"type", pMode:"photo", sel:null};
 
@@ -385,7 +401,7 @@ const MAJOR = new Set(["Visitor Center", "Hamer Classroom Building", "Aerie Clas
 function addLabel(text, x, y, z, cls, onClick){
   const el = document.createElement("button"); el.className = "lbl " + (cls || ""); el.textContent = text; el.type = "button";
   el.addEventListener("click", e => { e.stopPropagation(); onClick(); });
-  const pri = cls === "obs" ? 2 : MAJOR.has(text) ? 2 : cls === "bld" ? 1 : 0;
+  const pri = cls === "obs" || cls === "cam" ? 2 : MAJOR.has(text) ? 2 : cls === "bld" ? 1 : 0;
   $("labels").appendChild(el); const L = {el, v:new THREE.Vector3(x, y, z), cls, pri}; labelEls.push(L); return L;
 }
 function buildLabels(){
@@ -406,7 +422,7 @@ function placeLabels(){
   const dist = camera.position.distanceTo(controls.target);
   for (const L of labelEls){
     const hideFar = (L.pri === 0 && dist > 700) || (L.pri === 1 && dist > 190);
-    if (!show || hideFar || (L.cls === "obs" && !layers.sightings.visible)){ L.el.hidden = true; continue; }
+    if (!show || hideFar || (L.cls === "obs" && !layers.sightings.visible) || (L.cls === "cam" && !layers.stations.visible)){ L.el.hidden = true; continue; }
     _v.copy(L.v).project(camera);
     if (_v.z > 1 || Math.abs(_v.x) > 1.05 || Math.abs(_v.y) > 1.05){ L.el.hidden = true; continue; }
     L.el.hidden = false; L.el.style.left = ((_v.x + 1) / 2 * w) + "px"; L.el.style.top = ((1 - _v.y) / 2 * hh) + "px";
@@ -442,16 +458,18 @@ canvas.addEventListener("pointerup", e => {
   if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
   const r = canvas.getBoundingClientRect();
   ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
-  const targets = [...(layers.buildings.visible ? bMeshes : []), ...(layers.trees.visible && treeMesh ? [treeMesh] : []), ...(layers.terrain.visible ? layers.terrain.children : [])];
+  const targets = [...(layers.stations.visible ? stMeshes : []), ...(layers.buildings.visible ? bMeshes : []), ...(layers.trees.visible && treeMesh ? [treeMesh] : []), ...(layers.terrain.visible ? layers.terrain.children : [])];
   const hit = ray.intersectObjects(targets, false)[0];
   if (!hit) return;
-  if (hit.object.userData.kind === "building") select({b:hit.object.userData.b});
+  if (hit.object.userData.kind === "station") select({st:hit.object.userData.st});
+  else if (hit.object.userData.kind === "building") select({b:hit.object.userData.b});
   else if (hit.object.userData.kind === "tree") select({tree:hit.instanceId});
   else select({ground:hit.point});
 });
 
 // ---------------------------------------------------------------- panel
 function select(s){
+  if (tlTimer){ clearInterval(tlTimer); tlTimer = null; }
   if (state.sel?.b?.label) state.sel.b.label.el.classList.remove("sel");
   state.sel = s; if (s?.b?.label) s.b.label.el.classList.add("sel");
   colorBuildings(); render();
@@ -465,6 +483,7 @@ function render(){
   if (s.b) return renderBuilding(s.b, back);
   if (s.tree != null) return renderTree(s.tree, back);
   if (s.f) return renderFeature(s.f, back);
+  if (s.st) return renderStation(s.st, back);
   if (s.ground) return renderGround(s.ground, back);
 }
 function wireBack(){ const b = $("back"); if (b) b.onclick = () => select(null); }
@@ -475,12 +494,14 @@ function renderOverview(){
   panel.innerHTML = `
     <div><h2>Visitor Center and grounds</h2><p class="sub">A 1938 Forestry lodge joined to a 2017–18 addition, surrounded by the Klingsberg Aviary, classrooms, trails and Lake Perez. Click a building, tree or label to see details.</p></div>
     <section><h3>Right now at the site</h3><div id="wx" class="sub">Loading conditions…</div></section>
+    ${stationsBlock()}
     <section><h3>History</h3><ul class="tl">${SITE.timeline.map(([y,t]) => `<li><b>${y}</b><span>${esc(t)}</span></li>`).join("")}</ul></section>
     ${vc ? `<section><h3>Visitor Center roof, 2006–08 vs 2019</h3>${changeBlock(vc)}<button class="back" id="goVC">Open the Visitor Center →</button></section>` : ""}
     <section><h3>Recent sightings nearby <span class="tag">iNaturalist · live</span></h3><div id="inat" class="sightings sub">Loading…</div></section>
     <section><h3>Design team</h3><table class="kv">${SITE.team.map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("")}</table></section>
     <section><h3>Read more</h3><ul class="plain">${SITE.links.map(([t,u]) => `<li><a href="${u}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join("")}</ul></section>`;
   const g = $("goVC"); if (g) g.onclick = () => { select({b:vc}); focusB(vc); };
+  panel.querySelectorAll("[data-st]").forEach(b => b.onclick = () => { const st = CH.stations[+b.dataset.st]; select({st}); flySt(st); });
   loadWeather(); loadSightings();
 }
 function changeBlock(b){
@@ -555,6 +576,64 @@ function renderGround(p, back){
     <div><span class="k">From the Visitor Center</span><span class="v">${fmt(Math.hypot(p.x, p.y), 0)} m</span><span class="s">straight-line</span></div></div>
     <section><h3>Recorded within 100 m <span class="tag">iNaturalist · live</span></h3><div id="inatG" class="sightings sub">Loading…</div></section>`;
   wireBack(); loadSightings({lat:la, lng:lo, radius:0.1, per_page:6}, "inatG");
+}
+
+// ---------------------------------------------------------------- Chronolog photo stations (snapshot from pipeline/fetch_chronolog.py)
+let CH = null;
+const photoUrl = (id, size = "1200_2") => `${CH.photoBase}${size}/${encodeURIComponent(id)}.jpeg`;
+const pdate = t => new Date(t.endsWith("Z") ? t : t + "").toLocaleDateString([], {month:"short", day:"numeric", year:"numeric"});
+function buildStations(){
+  for (const st of CH.stations){
+    if (st.x == null || Math.abs(st.x) > F.ctx || Math.abs(st.y) > F.ctx) continue;
+    const z = h(st.x, st.y);
+    const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(st.x, st.y, z), new THREE.Vector3(st.x, st.y, z + 5)]);
+    layers.stations.add(new THREE.Line(g, new THREE.LineBasicMaterial({color:0xf2c200})));
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), new THREE.MeshLambertMaterial({color:0xf2c200}));
+    m.position.set(st.x, st.y, z + 1.2); m.userData = {kind:"station", st}; layers.stations.add(m); stMeshes.push(m);
+    addLabel(`📷 ${st.name.replace("Shaver's Creek Environmental Ctr ", "")}`, st.x, st.y, z + 5.5, "cam", () => { select({st}); flySt(st); });
+  }
+}
+const stMeshes = [];
+function flySt(st){ if (st.x != null) fly(new THREE.Vector3(st.x, st.y, h(st.x, st.y) + 2), 140, [0.45, -0.75, 0.6]); }
+let tlTimer = null;
+function renderStation(st, back){
+  const P = st.photos, n = P.length, short = st.name.replace("Shaver's Creek Environmental Ctr ", "");
+  const onsite = st.x != null;
+  panel.innerHTML = `${back}
+    <div><h2>${esc(short)} <span class="tag" style="background:#f2c200;color:#1b1b1b">Photo station ${esc(st.sign)}</span></h2>
+      <p class="sub">${esc(st.description)}</p></div>
+    ${n ? `<section><h3>Timelapse <span class="tag">${n} visitor photos</span></h3>
+      <div class="tl-photo"><img id="tlImg" alt="Visitor photo from ${esc(short)}" src="${esc(photoUrl(P[n-1].id))}"><span class="d" id="tlDate">${esc(pdate(P[n-1].t))}</span></div>
+      <div class="tl-ctl" style="margin-top:8px"><button id="tlPlay" type="button">Play</button><input id="tlSlider" type="range" min="0" max="${n-1}" value="${n-1}" aria-label="Photo"></div>
+      <div class="strip" style="margin-top:8px">${P.map((p, i) => `<button type="button" data-i="${i}" aria-label="${esc(pdate(p.t))}" ${i === n-1 ? 'aria-current="true"' : ""}><img loading="lazy" alt="" src="${esc(photoUrl(p.id, "300_2"))}"></button>`).join("")}</div>
+      <p class="note">${st.contributors} contributors · ${esc(pdate(P[0].t))} – ${esc(pdate(P[n-1].t))}. Photos by visitors via <a href="https://www.chronolog.io" target="_blank" rel="noopener">Chronolog</a>. This list is a snapshot from ${esc(pdate(CH.fetched))}. <a href="${esc(safeUrl(st.url))}" target="_blank" rel="noopener">The live timelapse</a> has any newer photos.</p></section>`
+      : `<p class="note">No photos have been added yet.</p>`}
+    ${onsite ? `<div class="facts"><div><span class="k">Location</span><span class="v" style="font-size:12px">${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}</span><span class="s">${fmt(Math.hypot(st.x, st.y),0)} m from the Visitor Center</span></div>
+      <div><span class="k">Ground elevation</span><span class="v">${fmt((h(st.x, st.y) + Z0) * M2FT, 0)} ft</span><span class="s">3DEP bare earth</span></div></div>`
+      : `<p class="note">This station is off site, and Chronolog doesn't publish its location yet, so it isn't on the map.</p>`}
+    <section><h3>Add a photo</h3><ol class="plain" style="padding-left:18px;margin:0"><li>Place your phone horizontally in the bracket on the post.</li><li>Take a photo.</li><li>Upload it with the QR code on the sign, or email it to <b>upload@chronolog.io</b> with the subject <b>${esc(st.sign)}</b>.</li></ol></section>
+    ${st.code === "SHV101" ? `<p class="note">The 2026 parking-lot renovation this station records happened after the 2019 lidar and the 2022 imagery used here, so the new lot and rain garden don't appear in the 3D model.</p>` : ""}`;
+  wireBack();
+  if (!n) return;
+  const img = $("tlImg"), dt = $("tlDate"), sl = $("tlSlider"), strip = panel.querySelectorAll(".strip button");
+  const show = i => { i = +i; img.src = photoUrl(P[i].id); dt.textContent = pdate(P[i].t); sl.value = i; strip.forEach((b, k) => b.setAttribute("aria-current", k === i)); };
+  sl.oninput = e => show(e.target.value);
+  strip.forEach(b => b.onclick = () => show(b.dataset.i));
+  P.forEach(p => { const im = new Image(); im.src = photoUrl(p.id); });   // preload for smooth playback
+  const play = $("tlPlay");
+  play.onclick = () => {
+    if (tlTimer){ clearInterval(tlTimer); tlTimer = null; play.textContent = "Play"; return; }
+    let i = +sl.value >= n - 1 ? 0 : +sl.value; show(i); play.textContent = "Pause";
+    tlTimer = setInterval(() => { i++; if (i >= n){ clearInterval(tlTimer); tlTimer = null; play.textContent = "Play"; return; } show(i); }, 700);
+  };
+}
+function stationsBlock(){
+  if (!CH) return "";
+  return `<section><h3>Photo stations <span class="tag" style="background:#f2c200;color:#1b1b1b">Chronolog</span></h3>
+    <p class="sub">Visitors add a phone photo from a fixed bracket, and Chronolog assembles them into a timelapse of each spot. These are the closest thing to a live camera at the site.</p>
+    <div class="cams">${CH.stations.map((st, i) => { const last = st.photos[st.photos.length - 1];
+      return `<button class="camrow" type="button" data-st="${i}">${last ? `<img alt="" loading="lazy" src="${esc(photoUrl(last.id, "300_2"))}">` : `<span></span>`}
+        <span><b>${esc(st.name.replace("Shaver's Creek Environmental Ctr ", ""))}</b> <span class="note">${esc(st.sign)}</span><br><span class="note">${st.photos.length ? `${st.photos.length} photos · latest ${esc(pdate(last.t))}` : "no photos yet"}</span></span></button>`; }).join("")}</div></section>`;
 }
 
 // ---------------------------------------------------------------- live feeds
@@ -659,12 +738,13 @@ async function boot(){
     T = await getJSON("twin.json"); F = T.frame; N = F.demN; PX = F.demPx;
     dem = new Float32Array(await getBuf("terrain.f32"));
     Z0 = dem[Math.floor(N / 2) * N + Math.floor(N / 2)];
-    await buildTerrain(); buildBuildings(); buildTrees(); buildLines(); buildLabels();
+    try { CH = await getJSON("chronolog.json"); } catch(e){ console.warn("no Chronolog snapshot", e); }
+    await buildTerrain(); buildBuildings(); buildTrees(); buildLines(); buildLabels(); if (CH) buildStations();
     layers.trees.visible = false; layers.points.visible = false; layers.sightings.visible = false;
     statusEl.hidden = true; home(); render(); legend();
     $("meta").textContent = `Lidar 2019 (USGS 3DEP) · ${T.trees.length.toLocaleString()} trees detected · ${T.buildings.length} buildings · built ${T.generated}`;
     $("about").innerHTML = `<p>This model is assembled only from public data. Terrain is the USGS 3DEP bare-earth elevation model. Imagery is USDA NAIP from May 2022 (0.6 m), served by USGS. The point cloud, roof shapes, building heights and tree crowns come from the 2019 USGS lidar survey (PA Northcentral, QL2). Building outlines, trails and named places come from OpenStreetMap (© OpenStreetMap contributors, ODbL). The roof-change view compares the 2019 survey with the 2006–08 PAMAP statewide survey on a 2 m grid.</p>
-      <p>Heights are measured, not modelled. Walls are drawn straight down from the lidar roof edge to the lowest ground corner. Inside the Visitor Center, rooms are listed but not drawn, because no floor plans are public. Live weather comes from Open-Meteo (a model) and the NWS KUNV station. Live sightings come from iNaturalist. Obscured observations are never placed on the map.</p>
+      <p>Heights are measured, not modelled. Walls are drawn straight down from the lidar roof edge to the lowest ground corner. Inside the Visitor Center, rooms are listed but not drawn, because no floor plans are public. Live weather comes from Open-Meteo (a model) and the NWS KUNV station. Live sightings come from iNaturalist. Obscured observations are never placed on the map. Photo-station images are contributed by visitors through Chronolog and load directly from Chronolog's servers. The list of photos is a snapshot taken when this page was built.</p>
       <p>This view is for exploring, not for taking measurements. Contact the Penn State Heritage 3D Lab for the processed datasets.</p>`;
   } catch(e){ report("the model", e); return; }
   (function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); placeLabels(); })();
